@@ -12,8 +12,58 @@ datasource db {
 
 // Define models
 
-model User{
-  id Int @id @default(autoincrement())
-  email String @unique
-  password String 
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String
+  firstName String
+  lastName  String
+  // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
+  privilege String    @default("USER")
+  // Timestamp
+  createdAt DateTime  @default(now())
+  projects  Project[]
+  @@map("user")
+}
+
+model Project {
+  id          Int          @id @default(autoincrement())
+  owner       User         @relation(fields: [userId], references: [id])
+  userId      Int
+  evaluations Evaluation[]
+  @@map("project")
+}
+
+model Evaluation {
+  id             Int      @id @default(autoincrement())
+  project        Project  @relation(fields: [projectId], references: [id])
+  projectId      Int
+  score          Float
+  timeStarted    DateTime @default(now())
+  lastUpdateTime DateTime @updatedAt
+  @@map("evaluation")
+}
+
+model Question {
+  id       Int      @id @default(autoincrement())
+  question String
+  answers  Answer[]
+  layer    Layer    @relation(fields: [layerId], references: [id])
+  layerId  Int
+  @@map("question")
+}
+
+model Answer {
+  id         Int      @id @default(autoincrement())
+  score      Float
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId Int
+  @@map("answer")
+}
+
+model Layer {
+  id        Int        @id @default(autoincrement())
+  name      String
+  questions Question[]
+  @@map("layer")
 }
