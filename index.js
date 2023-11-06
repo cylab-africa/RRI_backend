@@ -1,14 +1,14 @@
 var express = require('express');
 var app = express();
 const {testGetWay} = require('./src/controllers/testController')
-const {createLayer} = require('./src/controllers/evaluationControllers')
+const {getLayers, getQuestions} = require('./src/controllers/evaluationControllers')
 // Configurations
 
 
 // Routes
 app.get('/', testGetWay)
-app.get("/layer", createLayer)
-
+app.get("/layer", getLayers)
+app.get('/questions', getQuestions)
 
 
 var server = app.listen(8081, function () {
