@@ -1,11 +1,13 @@
 var express = require('express');
 var app = express();
 const {testGetWay} = require('./src/controllers/testController')
+const {createLayer} = require('./src/controllers/evaluationControllers')
 // Configurations
 
 
 // Routes
 app.get('/', testGetWay)
+app.get("/layer", createLayer)
 
 
 
