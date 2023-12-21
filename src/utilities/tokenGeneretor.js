@@ -29,7 +29,12 @@ const generateJWTToken = (payload) => {
     }
   };
 
+ const isJWTExpired=(decodedJWT)=>{
+    let expiresAt = decodedJWT.getExpiresAt()
+    return expiresAt.before(new Date())
+}
   module.exports = {
     verifyJWTToken,
-    generateJWTToken
+    generateJWTToken,
+    isJWTExpired
   }

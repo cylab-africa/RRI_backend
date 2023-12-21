@@ -13,39 +13,33 @@ datasource db {
 // Define models
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String
-  firstName String
-  lastName  String
-  // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
-  privilege String    @default("USER")
-  // Timestamp
-  createdAt DateTime  @default(now())
-  projects  Project[]
-  @@map("user")
-}
-
-model Project {
   id          Int          @id @default(autoincrement())
-  owner       User         @relation(fields: [userId], references: [id])
-  userId      Int
-  name String
+  email       String       @unique
+  password    String
+  firstName   String
+  lastName    String
+  // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
+  privilege   String       @default("USER")
+  // Timestamp
+  createdAt   DateTime     @default(now())
   evaluations Evaluation[]
-  @@map("project")
+
+  @@map("user")
 }
 
 model Evaluation {
   id             Int      @id @default(autoincrement())
-  project        Project  @relation(fields: [projectId], references: [id])
-  projectId      Int
+  project        String   
+  userId         Int
+  owner          User     @relation(fields: [userId], references: [id])
   score          Float
-  answers Answer []
+  answers        Answer[]
   timeStarted    DateTime @default(now())
   lastUpdateTime DateTime @updatedAt
+  layersDone     Int      @default(0)
+
   @@map("evaluation")
 }
-
 
 model Question {
   id       Int      @id @default(autoincrement())
@@ -53,22 +47,26 @@ model Question {
   answers  Answer[]
   layer    Layer    @relation(fields: [layerId], references: [id])
   layerId  Int
+
   @@map("question")
 }
 
 model Answer {
-  id         Int      @id @default(autoincrement())
-  score      Float
-  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+  id           Int        @id @default(autoincrement())
+  score        Float
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
   evaluationId Int
-  question   Question @relation(fields: [questionId], references: [id])
-  questionId Int
+  question     Question   @relation(fields: [questionId], references: [id])
+  questionId   Int
+
   @@map("answer")
 }
 
 model Layer {
   id        Int        @id @default(autoincrement())
   name      String
+  value Int
   questions Question[]
+
   @@map("layer")
 }
