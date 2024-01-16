@@ -124,7 +124,7 @@ const getQuestions = async (req, res) => {
     }
     return res.status(200).send({ questions: questions });
   } catch (e) {
-    console.log(e);
+    // console.log(e);
     return res.status(500).send({ error: e });
   }
 };
@@ -132,7 +132,7 @@ const getQuestions = async (req, res) => {
 const createProject = async (req, res) => {
   try {
     const { projectName } = req.body;
-    console.log(projectName)
+    // console.log(projectName)
     let user = req.user;
     let evaluation = await prisma.evaluation.findFirst({where:{project:projectName, userId:user.id}})
     if(!evaluation){
@@ -146,10 +146,36 @@ const createProject = async (req, res) => {
     // console.log(evaluation)
     return res.status(200).send({ message: `Let's proceed with ${projectName}.`, data: evaluation });
   } catch (e) {
-    console.log(e);
+    // console.log(e);
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
+
+
+// const getProjects = async (req, res) => {
+//   try {
+//     // const { projectName } = req.body;
+//     const { projectId } = req.query
+//     // console.log(projectName)
+//     let user = req.user;
+
+//     let evaluation = []
+//     if (projectId){
+   
+//       evaluation = await prisma.evaluation.findMany({where:{id: projectId, userId:user.id}})
+//       return res.status(200).send({  data: evaluation });
+
+//     }else{
+//     // console.log(evaluation)
+//       evaluation = await prisma.evaluation.findMany({where:{userId:user.id}})
+//       return res.status(200).send({data: evaluation });
+//     }
+//   } catch (e) {
+//     console.log(e);
+//     return res.status(500).send({ message: "Something went wrong." });
+//   }
+// };
+
 
 const submitAnswers = async (req, res) => {
   try {
@@ -207,7 +233,7 @@ const submitAnswers = async (req, res) => {
             .send({ message: "Project evaluation  completed", evaluation: evaluation});
         }
   } catch (e) {
-    console.log(e);
+    // console.log(e);
     return res.status(500).send({ message: e });
   }
 };
@@ -237,13 +263,13 @@ const getEvaluations = async(req, res) => {
         return evaluation;
       }
     }))
-    console.log(updatedEvaluations)
+    // console.log(updatedEvaluations)
     
     // averageScore = calculateScore()
 
     return res.status(200).send({data:updatedEvaluations})
   } catch (e) {
-    console.log(e)
+    // console.log(e)
     return res.status(500).send({"message":"Something went wrong."})
   }
 };
