@@ -3,9 +3,9 @@ const prisma = new PrismaClient()
 
 
 const calculateScore =(layerOneScores, layerTwoScores=null, layerThreeScores=null)=>{
-    console.log(layerOneScores)
-    console.log(layerTwoScores)
-    console.log(layerThreeScores)
+    // console.log(layerOneScores)
+    // console.log(layerTwoScores)
+    // console.log(layerThreeScores)
 
 
 
@@ -35,7 +35,7 @@ const calculateScore =(layerOneScores, layerTwoScores=null, layerThreeScores=nul
         })
         layerThreeScore = sum*20/(layerThreeScores.length*10)
     }
-    console.log(layerOneScore, layerTwoScore, layerThreeScore)
+    // console.log(layerOneScore, layerTwoScore, layerThreeScore)
     return layerOneScore + layerTwoScore + layerThreeScore;
 }
 
