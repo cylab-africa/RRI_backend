@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
 
-const calculateScore =(layerOneScores, layerTwoScores=null, layerThreeScores=null)=>{
+const calculateScore =(layerOneAnswers, layerTwoAnswers=null, layerThreeAnswers=null)=>{
     // console.log(layerOneScores)
     // console.log(layerTwoScores)
     // console.log(layerThreeScores)
@@ -14,29 +14,32 @@ const calculateScore =(layerOneScores, layerTwoScores=null, layerThreeScores=nul
     let layerThreeScore = 0
 
     let sum = 0
-    layerOneScores.forEach((e)=>{
-        sum +=e.score
+    layerOneAnswers.forEach((e)=>{
+        score = (e.score * e.weight)/10
+        sum +=score 
     })
 
-    layerOneScore = sum*50/(layerOneScores.length*10)
+    layerOneScore = sum*50/(layerOneAnswers.length*10)
 
-    if(layerTwoScores!== null || layerTwoScores.length !==0){
+    if(layerTwoAnswers!== null || layerTwoAnswers.length !==0){
         let sum = 0
-        layerTwoScores.forEach((e)=>{
-            sum +=e.score
+        layerTwoAnswers.forEach((e)=>{
+            score = (e.score * e.weight)/10
+            sum +=score
         })
-        layerTwoScore = sum*30/(layerTwoScores.length*10)
+        layerTwoScore = sum*30/(layerTwoAnswers.length*10)
     }
 
-    if(layerThreeScores!== null || layerThreeScores.length!==0){
+    if(layerThreeAnswers!== null || layerThreeAnswers.length!==0){
         let sum = 0
-            layerThreeScores.forEach((e)=>{
-            sum +=e.score
+            layerThreeAnswers.forEach((e)=>{
+            score = (e.score * e.weight)/10
+            sum +=score
         })
-        layerThreeScore = sum*20/(layerThreeScores.length*10)
+        layerThreeScore = sum*20/(layerThreeAnswers.length*10)
     }
     // console.log(layerOneScore, layerTwoScore, layerThreeScore)
-    return layerOneScore + layerTwoScore + layerThreeScore;
+    return [layerOneScore, layerTwoScore, layerThreeScore, (layerOneScore + layerTwoScore + layerThreeScore)];
 }
 
 
