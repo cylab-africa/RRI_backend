@@ -54,7 +54,7 @@ const createProject = async (req, res) => {
     const { projectName } = req.body;
     // console.log(projectName)
     let user = req.user;
-    let project = await prisma.project.findFirst({where:{name:projectName}, include:{evaluations:true}})
+    let project = await prisma.project.findFirst({where:{name:projectName, userId:user.id}, include:{evaluations:true}})
     if (!project){
       project = await prisma.project.create({
         data:{
@@ -92,13 +92,43 @@ const getProjects = async (req, res) => {
     let projects = []
     if (projectId){
         projects = await prisma.project.findMany({where:{id: projectId, userId:user.id}, include:{evaluations:true}})
+
+        // projects.map((project)=>{
+          
+        // })
+        console.log("Hi there")
+
+        projects.forEach(async(project)=>{
+          const evaluation = await prisma.evaluation.findFirst({where:{projectId:project.id}})
+          const answeresLayerOne = await prisma.answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:1}}}}})
+          const answeresLayerTwo = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:2}}}}})
+          const answeresLayerThree = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:3}}}}})
+          let score = calculateScore(answeresLayerOne, answeresLayerTwo, answeresLayerThree)
+          console.log(score)
+          let updatedEvaluation = await prisma.evaluation.update({where:{id:evaluation.id}, data:{score:score}})
+          // let updatedProject = await prisma.project.update({where:{id:pr.id}, data:{score:score}})
+          // return updatedEvaluation;
+        })
+        
         return res.status(200).send({  data: projects });
     }else{
         projects = await prisma.project.findMany({where:{userId:user.id}, include:{evaluations:true}})
+        // console.log(projects)
+        await Promise.all(projects.map(async(project)=>{
+          const evaluation = await prisma.evaluation.findFirst({where:{projectId:project.id}})
+          const answeresLayerOne = await prisma.answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:1}}}}})
+          const answeresLayerTwo = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:2}}}}})
+          const answeresLayerThree = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:3}}}}})
+          let score = calculateScore(answeresLayerOne, answeresLayerTwo, answeresLayerThree)
+          // console.log(score)
+          let updatedEvaluation = await prisma.evaluation.update({where:{id:evaluation.id}, data:{score:score}})
+          // let updatedProject = await prisma.project.update({where:{id:pr.id}, data:{score:score}})
+          return updatedEvaluation;
+        }))
         return res.status(200).send({data: projects });
     }
   } catch (e) {
-      // console.log(e);
+      console.log(e);
       return res.status(500).send({ message: "Something went wrong." });
   }
 };
@@ -108,7 +138,7 @@ const submitAnswers = async (req, res) => {
   try {
     // console.log(token)
     const { answers, projectId } = req.body;
-    console.log(answers)
+    // console.log(answers)
     const user = req.user;
     // console.log(user)
     // const layer = await prisma.layer.findUnique({where:{id:layerId}})
@@ -167,9 +197,10 @@ const submitAnswers = async (req, res) => {
 
     });
     
- 
+      const evaluationAnswers = await prisma.answer.findMany({where:{evaluationId:evaluation.id}})
+      // console.log(evaluationAnswers)
       updatedEvaluation = await prisma.evaluation.update({where:{id:evaluation.id}, data:{layersDone:1}})
-
+    // console.log(updatedEvaluation.evaluations)
     return res
       .status(200)
       .send({ message: "Submitted successifully", evaluation: updatedEvaluation });
@@ -201,7 +232,7 @@ const getEvaluations = async(req, res) => {
           const answeresLayerTwo = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:2}}}}})
           const answeresLayerThree = await prisma. answer.findMany({where:{evaluationId:evaluation.id, question:{question:{layer:{value:3}}}}})
           let score = calculateScore(answeresLayerOne, answeresLayerTwo, answeresLayerThree)
-          // console.log(score)
+          console.log(score)
           let updatedEvaluation = await prisma.evaluation.update({where:{id:evaluation.id}, data:{score:score}})
           return updatedEvaluation;
       // }else{

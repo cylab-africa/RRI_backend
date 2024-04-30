@@ -8,6 +8,8 @@ const { authorize, strictAuthorize } = require('./src/middleware/authorization')
 
 // Configurations
 
+// Migrate the database
+
 
 app.use(cors({
    origin: '*',

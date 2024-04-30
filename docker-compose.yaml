@@ -1,0 +1,34 @@
+version: '3'
+services:
+  db:
+    image: postgres:14
+    ports:
+      - 3254:3254
+    environment:
+      - POSTGRES_PASSWORD=Ru3m2r0c2I
+      - POSTGRES_USER=rriadmin
+      - POSTGRES_DB=rridb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  app:
+    image: rri-app
+    ports:
+      - 8082:8081
+    environment:
+      - DATABASE_URL=postgresql://rriadmin:Ru3m2r0c2I@db:3254/rridb
+      - TOKEN_SECRET=6c564f818a0d5f681ce6f62474485479df0a5749d2b4d7715170f7ff81c6907501094bb48ae70e89776192d919a360d879970514b3e257a98d2a279a68bfdfe4
+      - JWT_SALT=RRISALT
+    depends_on:
+      - db
+  react:
+    image: rri-react
+    ports:
+      - 3000:3000
+    
+    depends_on:
+      - db
+      - app
+
+volumes:
+  pgdata: {}
