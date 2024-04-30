@@ -37,7 +37,6 @@ const authorize = async (req, res, next)=>{
                 return res.status(202).send({"message":"Account created. Please use the token provided for anonymous authentication.", "data":user})
             }
             if(user){
-                // const actualUser = await prisma.user.findUnique({where:{id:user.id}})
                 req.user = user
                 let realUser = await prisma.user.findUnique({where:{id:user.id}})
                 if(realUser === null){
@@ -59,7 +58,7 @@ const authorize = async (req, res, next)=>{
         }
         return next()
     }catch(e){
-        console.log(e)
+        // console.error(e)
        
         return res.status(500).send({"message":"Something went wrong!"})
     }

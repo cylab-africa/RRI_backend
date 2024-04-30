@@ -39,7 +39,7 @@ const calculateScore =(layerOneAnswers, layerTwoAnswers=null, layerThreeAnswers=
         layerThreeScore = sum*20/(layerThreeAnswers.length*10)
     }
     // console.log(layerOneScore, layerTwoScore, layerThreeScore)
-    return [layerOneScore, layerTwoScore, layerThreeScore, (layerOneScore + layerTwoScore + layerThreeScore)];
+    return [parseFloat(layerOneScore.toFixed(1)), parseFloat(layerTwoScore.toFixed(1)), parseFloat(layerThreeScore.toFixed(1)), parseFloat((layerOneScore + layerTwoScore + layerThreeScore).toFixed(1))];
 }
 
 
@@ -65,7 +65,31 @@ const submittedScoresCheck= async(answers, evaluation)=>{
 
 
 
+function calculateAverageScore(questions, weights) {
+    let totalWeight = 0;
+    let weightedSum = 0;
+  
+    // Iterate through each question
+    questions.forEach((question) => {
+      // Find the corresponding weight for the question
+      const weight = weights.find((item) => item.id === question.id)?.w || 1;
+  
+      // Ensure score is within the range [0, 10]
+      const normalizedScore = Math.min(Math.max(question.score, 0), 10);
+  
+      // Update the weighted sum and total weight
+      weightedSum += normalizedScore * weight;
+      totalWeight += weight;
+    });
+  
+    // Calculate the average score
+    const averageScore = totalWeight !== 0 ? weightedSum / totalWeight : 0;
+    return averageScore.toFixed(1); // Round to one decimal place
+  }
+
+
 module.exports = {
     submittedScoresCheck,
-    calculateScore
+    calculateScore,
+    calculateAverageScore
 }
