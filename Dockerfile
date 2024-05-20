@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 # COPY package.json ./
 COPY package*.json ./
 
-COPY ./src/db/configs/prisma ./prisma
+COPY ./src/db/configs/prisma ./src/prisma
 
 RUN npm install
 
@@ -18,5 +18,5 @@ COPY . .
 
 EXPOSE 8081
 
-# CMD [ "npm", "run" ]
-CMD ["node", "index.js"]
+CMD [ "npm", "run" ]
+# CMD ["node", "index.js"]
