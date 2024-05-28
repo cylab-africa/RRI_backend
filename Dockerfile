@@ -18,5 +18,5 @@ COPY . .
 
 EXPOSE 8081
 
-CMD [ "npm", "run" ]
-# CMD ["node", "index.js"]
+# CMD [ "npm", "run" ]
+CMD ["node", "start"]
