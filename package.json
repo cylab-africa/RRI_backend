@@ -4,7 +4,7 @@
   "description": "RRI",
   "main": "index.js",
   "scripts": {
-    "start": "cd ./src/db/conf/prisma && npx prisma generate && cd ../../../../ && nodemon index.js",
+    "start": "cd src/db/conf/prisma && npx prisma generate && cd ../../../../ && nodemon index.js",
     "run": "cd ./src/prisma && npx prisma migrate && cd ../../ && node ./src/utilities/addQuestions.js && node index.js"
   },
   "repository": {
