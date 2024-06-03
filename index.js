@@ -5,7 +5,7 @@ var app = express();
 const {testGetWay} = require('./src/controllers/testController')
 const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects} = require('./src/controllers/evaluationControllers');
 const { authorize, strictAuthorize } = require('./src/middleware/authorization');
-require('./auth/auth')
+// require('./auth/auth')
 const PORT = process.env.PORT
 const ORIGIN = process.env.WEBSITE
 // Configurations
