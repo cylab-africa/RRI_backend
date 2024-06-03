@@ -4,9 +4,10 @@
   "description": "RRI",
   "main": "index.js",
   "scripts": {
-    "start": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && nodemon index.js",
-    "run": "cd ./src/prisma && npx prisma migrate && cd ../../ && node ./src/utilities/addQuestions.js && node index.js"
+    "start": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node index.js",
+    "test": "nodemon index.js"
   },
+  
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cylab-africa/RRI_backend.git"
