@@ -8,9 +8,9 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 3000
+  - port: 8081
     name: http
-    targetPort: 3000
+    targetPort: 8081
     protocol: TCP
   selector:
     revision: prod_v1.0
@@ -48,7 +48,7 @@ spec:
       - image: 0789421906/rri-backend:latest
         name: rri-backend-container 
         ports:
-        - containerPort: 3000 
+        - containerPort: 8081 
         resources:
           requests:
             cpu: "100m"
@@ -84,7 +84,7 @@ spec:
           service:
             name: rri-backend-service-prod
             port:
-              number: 3000
+              number: 8081
 ---
 kind: Secret
 apiVersion: v1

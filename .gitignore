@@ -130,3 +130,4 @@ dist
 .pnp.*
 migrations
 dockerize.txt
+docs
