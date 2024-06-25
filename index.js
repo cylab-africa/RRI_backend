@@ -8,14 +8,20 @@ const { authorize, strictAuthorize } = require('./src/middleware/authorization')
 // require('./auth/auth')
 const PORT = process.env.PORT
 const ORIGIN = process.env.WEBSITE
+const ENV = process.env.ENV
 // Configurations
 
 // Migrate the database
 
-
-app.use(cors({
-   origin: ORIGIN,
-}));
+if (ENV==='TEST'){
+   app.use(cors({
+      origin: "*",
+   }));
+}else{
+   app.use(cors({
+      origin: ORIGIN,
+   }));
+}
 
 app.use(express.json());
 app.use(cookieParser())

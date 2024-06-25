@@ -2,12 +2,8 @@
 const { PrismaClient } = require('@prisma/client')
 const jwt = require('jsonwebtoken');
 const { generateJWTToken } = require('../utilities/tokenGeneretor');
-
-
 const token = process.env.TOKEN_SECRET;
 const prisma = new PrismaClient()
-
-
 
 const createAccount = async(req, res)=>{
    

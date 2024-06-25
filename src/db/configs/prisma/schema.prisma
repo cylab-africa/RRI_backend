@@ -32,6 +32,7 @@ model Project{
   name String
   evaluations Evaluation[]
   userId         Int
+  dateCreated    DateTime @default(now())
   owner          User     @relation(fields: [userId], references: [id])
   @@map("project")
 
