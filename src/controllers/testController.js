@@ -1,8 +1,6 @@
 
 const { PrismaClient } = require('@prisma/client')
 
-
-
 const testGetWay= async(req, res)=>{
     try{
         const prisma = new PrismaClient()
