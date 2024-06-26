@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 # COPY package.json ./
 COPY package*.json ./
 
-COPY ./src/db/configs/prisma ./src/prisma
+# COPY ./src/db/configs/prisma ./src/prisma
 
 RUN npm install
 
