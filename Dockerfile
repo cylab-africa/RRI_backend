@@ -18,5 +18,5 @@ COPY . .
 
 EXPOSE 8081
 
-# CMD [ "npm", "run" ]
-CMD ["npm", "start"]
+CMD [ "npm", "run" , "prod"]
+# CMD ["npm", "start"]
