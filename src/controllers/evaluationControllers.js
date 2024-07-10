@@ -1,5 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
-const { submittedScoresCheck, calculateScore } = require("../utilities/score");
+const { submittedScoresCheck, calculateScore, calculateAverageScore } = require("../utilities/score");
 // const token = process.env.TOKEN_SECRET;
 
 const prisma = new PrismaClient();
@@ -13,6 +13,29 @@ const getLayers = async (req, res) => {
     return res.status(500).send({ error: e });
   }
 };
+
+
+const generateReport = async(req, res) =>{
+
+    try{
+      let user = req.user;
+      // req.params.userId
+      let { pid } = req.params;
+      let project;
+      simple = (simple === 'true')
+      project = await prisma.project.findFirst({
+        where: { id: pid },
+        include: { evaluations: true },
+      }); 
+
+      return res.status(200).send({"project": project})
+    }catch(e){
+        // console.log(e)
+        return res.status(500).send({ error: e });
+
+    }
+}
+
 
 const getQuestions = async (req, res) => {
   try {
@@ -97,35 +120,20 @@ const getProjects = async (req, res) => {
         const evaluation = await prisma.evaluation.findFirst({
           where: { projectId: project.id },
         });
-        const answeresLayerOne = await prisma.answer.findMany({
+        const answeres = await prisma.answer.findMany({
           where: {
             evaluationId: evaluation.id,
-            question: { question: { layer: { value: 1 } } },
           },
+          include:{question:true}
         });
-        const answeresLayerTwo = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-            question: { question: { layer: { value: 2 } } },
-          },
-        });
-        const answeresLayerThree = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-            question: { question: { layer: { value: 3 } } },
-          },
-        });
-        let score = calculateScore(
-          answeresLayerOne,
-          answeresLayerTwo,
-          answeresLayerThree
-        );
+       
+        const score = await calculateAverageScore(answeres)
+       
         let updatedEvaluation = await prisma.evaluation.update({
           where: { id: evaluation.id },
           data: { score: score },
         });
 
-        // console.log(sortedProjects)
         return updatedEvaluation;
       })
     );
@@ -155,7 +163,7 @@ const getProjects = async (req, res) => {
     }
     return res.status(200).send({ data: sortedProjects });
   } catch (e) {
-    console.log(e)
+    // console.log(e)
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
@@ -214,13 +222,22 @@ const submitAnswers = async (req, res) => {
       }
     });
 
+
     const evaluationAnswers = await prisma.answer.findMany({
       where: { evaluationId: evaluation.id },
+      include:{question:true}
     });
+    const score = await calculateAverageScore(evaluationAnswers)
     updatedEvaluation = await prisma.evaluation.update({
       where: { id: evaluation.id },
       data: { layersDone: 1 },
     });
+
+    
+    // let updatedEvaluation = await prisma.evaluation.update({
+    //   where: { id: evaluation.id },
+    //   data: { score: score, layersDone: 1 },
+    // });
     return res.status(200).send({
       message: "Submitted successifully",
       evaluation: updatedEvaluation,
@@ -296,4 +313,5 @@ module.exports = {
   createProject,
   getEvaluations,
   getProjects,
+  generateReport
 };
