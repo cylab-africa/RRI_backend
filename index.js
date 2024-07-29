@@ -33,7 +33,7 @@ app.post('/api/answers', authorize, submitAnswers)
 app.post('/api/project', authorize, createProject)
 app.get("/api/evaluation", strictAuthorize, getEvaluations)
 app.get("/api/projects", strictAuthorize, getProjects)
-app.get("/api/report", strictAuthorize, generateReport)
+app.get("/api/report/:pid", strictAuthorize, generateReport)
 
 var server = app.listen(PORT, function () {
    var host = server.address().address
