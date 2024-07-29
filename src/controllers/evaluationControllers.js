@@ -22,15 +22,15 @@ const generateReport = async(req, res) =>{
       // req.params.userId
       let { pid } = req.params;
       let project;
-      simple = (simple === 'true')
+      // simple = (simple === 'true')
       project = await prisma.project.findFirst({
-        where: { id: pid },
+        where: { id: parseInt(pid) },
         include: { evaluations: true },
       }); 
 
       return res.status(200).send({"project": project})
     }catch(e){
-        // console.log(e)
+        console.log(e)
         return res.status(500).send({ error: e });
 
     }
