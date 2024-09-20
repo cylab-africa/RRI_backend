@@ -23,9 +23,9 @@ const generateReport = async(req, res) =>{
       let { pid } = req.params;
       let project;
       // simple = (simple === 'true')
-      project = await prisma.project.findFirst({
+      project = await prisma.evaluation.findFirst({
         where: { id: parseInt(pid) },
-        include: { evaluations: true },
+        include: { answers:{include:{question:true}} },
       }); 
 
       return res.status(200).send({"project": project})

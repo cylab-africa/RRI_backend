@@ -3,7 +3,7 @@ const { verifyJWTToken, isJWTExpired } = require("../utilities/tokenGeneretor");
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-
+// You need to be logged in
 const strictAuthorize = async(req, res, next)=>{
     const token = req.headers["authorization"];
     if(token){
@@ -21,6 +21,8 @@ const strictAuthorize = async(req, res, next)=>{
     }
     return next()
 }
+
+// If you are not logged in an account will be created for you
 const authorize = async (req, res, next)=>{
     try{
 
