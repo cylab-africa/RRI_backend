@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define models
+
+model User {
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  password    String?
+  firstName   String
+  lastName    String
+  // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
+  privilege   String       @default("USER")
+  // Timestamp
+  createdAt   DateTime     @default(now())
+  projects Project[]  
+  googleCredential  String?      @unique
+
+  @@map("user")
+}
+
+model Project{
+  id             Int      @id @default(autoincrement())
+  name String
+  evaluations Evaluation[]
+  userId         Int
+  dateCreated    DateTime @default(now())
+  owner          User     @relation(fields: [userId], references: [id])
+  @@map("project")
+
+}
+
+model Evaluation {
+  id             Int      @id @default(autoincrement())
+  project        Project @relation(fields: [projectId], references: [id])   
+  projectId      Int
+  decription     String @default("")
+  // Layer1, Layer2, Layer3, Final 
+  score          Float []
+  answers        Answer[]
+  timeStarted    DateTime @default(now())
+  lastUpdateTime DateTime @updatedAt
+  // Display the entry question level 0
+  // Display other questions 5 per page level 1
+  // Display results level 2
+  // layerDone == 1 Then finished
+  layersDone     Int      @default(0)
+
+  @@map("evaluation")
+}
+
+model Question {
+  id       Int      @id @default(autoincrement())
+  number Int
+  question String
+  layer    Layer    @relation(fields: [layerId], references: [id])
+  layerId  Int
+  weight Float @default(0)
+  subquestions SubQuestion []
+  @@map("question")
+}
+
+model SubQuestion{
+  id Int @id @default(autoincrement())
+  questionText String
+   // Score, Choice, Open
+  type String
+  // This is in percentages ex: 4 for 40% or 7 for 70%
+  weight Float @default(0)
+  question Question @relation(fields: [questionId], references: [id])
+  questionId Int
+   answers  Answer[]
+  @@map("subquestion")
+}
+
+model Answer {
+  id           Int        @id @default(autoincrement())
+  score        Float  @default(0)
+  answer   String @default("")
+  weight Float @default(10)
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
+  evaluationId Int
+  question     SubQuestion   @relation(fields: [questionId], references: [id])
+  questionId   Int
+
+  @@map("answer")
+}
+
+model Layer {
+  id        Int        @id @default(autoincrement())
+  name      String
+  value Int
+  weight Float @default(0)
+  questions Question[]
+
+  @@map("layer")
+}

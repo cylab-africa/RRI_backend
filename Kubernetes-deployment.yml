@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: rri-backend
+  name: rri-backend-service-prod
+  namespace: rri
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8081
+    name: http
+    targetPort: 8081
+    protocol: TCP
+  selector:
+    revision: prod_v1.0
+    app: rri-backend
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rri-backend-account 
+  namespace: rri
+  labels:
+    app: rri-backend
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rri-backend 
+  name: rri-backend-deployment-prod 
+  namespace: rri
+spec:
+  replicas: 1  
+  selector:
+    matchLabels:
+      revision: prod_v1.0  
+      app: rri-backend 
+  template:
+    metadata:
+      labels:
+        revision: prod_v1.0  
+        app: rri-backend 
+    spec:
+      serviceAccountName: rri-backend-account  
+      containers:  
+      - image: 0789421906/rri-backend:latest
+        name: rri-backend-container 
+        ports:
+        - containerPort: 8081 
+        resources:
+          requests:
+            cpu: "100m"
+            memory: 300Mi
+          limits:
+            memory: 500Mi
+            cpu: "100m"
+        envFrom:
+        - secretRef:
+            name: rri-backend-secret-prod
+        imagePullPolicy: Always
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rri-backend-ingress
+  namespace: rri
+  labels:
+    app: rri-backend 
+spec:
+  ingressClassName: nginx
+  tls: 
+    - hosts:
+        - rri-backend.mosipcmuafrica.me
+      secretName: mosip-tls-cert
+  rules:
+  - host: rri-backend.mosipcmuafrica.me
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rri-backend-service-prod
+            port:
+              number: 8081
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: rri-backend-secret-prod
+  namespace: rri
+  labels:
+    app: rri-backend 
+stringData:
+  PORT: "3000"
+  DATABASE_URL: "postgresql://local:tyyt@localhost:333/name"
+  TOKEN_SECRET: "values"
+  JWT_SALT: "salt"
+type: Opaque

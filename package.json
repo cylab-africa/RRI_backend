@@ -4,21 +4,36 @@
   "description": "RRI",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon ./src/index.js"
+    "init": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node src/utiities/addQuestions.js && node index.js",
+    "prod": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node index.js",
+    "start": "nodemon index.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cylab-africa/RRI_backend.git"
   },
-  "author": "W,I,P",
+  "author": "W,I,P,G",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/cylab-africa/RRI_backend/issues"
   },
   "homepage": "https://github.com/cylab-africa/RRI_backend#readme",
   "dependencies": {
+    "@prisma/client": "^5.4.2",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "nodemon": "^3.0.1"
-  }
+    "jsonwebtoken": "^9.0.2",
+    "nodemon": "^3.0.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth2": "^0.2.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0"
+  },
+  "keywords": [
+    "rri_backend"
+  ]
 }
