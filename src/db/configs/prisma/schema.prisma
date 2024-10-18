@@ -15,14 +15,15 @@ datasource db {
 model User {
   id          Int          @id @default(autoincrement())
   email       String       @unique
-  password    String
+  password    String?
   firstName   String
   lastName    String
   // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
   privilege   String       @default("USER")
   // Timestamp
   createdAt   DateTime     @default(now())
-  projects Project[]
+  projects Project[]  
+  googleCredential  String?      @unique
 
   @@map("user")
 }

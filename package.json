@@ -4,11 +4,10 @@
   "description": "RRI",
   "main": "index.js",
   "scripts": {
-    "init" : "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node src/utiities/addQuestions.js && node index.js",
+    "init": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node src/utiities/addQuestions.js && node index.js",
     "prod": "cd src/db/configs/prisma && npx prisma generate && cd ../../../../ && node index.js",
     "start": "nodemon index.js"
   },
-  
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cylab-africa/RRI_backend.git"
@@ -29,10 +28,12 @@
     "nodemon": "^3.0.1",
     "passport": "^0.7.0",
     "passport-google-oauth2": "^0.2.0",
-    "pg": "^8.11.3",
-    "prisma": "^5.4.2"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
-    "prisma": "^5.4.2"
-  }
+    "prisma": "^5.20.0"
+  },
+  "keywords": [
+    "rri_backend"
+  ]
 }
