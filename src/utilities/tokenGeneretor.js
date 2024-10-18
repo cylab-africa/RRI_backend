@@ -12,14 +12,22 @@ const generateJWTToken = (payload) => {
   return token;
 };
 
-const verifyJWTToken = (token) => {
+const verifyJWTToken = async(token) => {
+  const SECRET_KEY = process.env.TOKEN_SECRET || "PRIVATEKEY";
+  const SALT = process.env.JWT_SALT || "SALT";
+
   try {
-    const SECRET_KEY = tokenKey || "PRIVATEKEY";
-    const SALT = salt || "SALT";
-    const decoded = jwt.verify(token, SECRET_KEY + SALT);
+    const decoded = await new Promise((resolve, reject) => {
+        jwt.verify(token, SECRET_KEY + SALT, (err, decodedUser) => {
+            if (err) return reject(err);
+            resolve(decodedUser);
+        });
+    });
+    console.log('decoded:',decoded)
     return decoded;
   } catch (error) {
-    return false;
+    console.log('error: ',error)
+    return null;
   }
 };
 

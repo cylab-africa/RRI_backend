@@ -172,6 +172,7 @@ const submitAnswers = async (req, res) => {
   try {
     const { answers, projectId } = req.body;
     const user = req.user;
+    console.log(user)
     const evaluation = await prisma.evaluation.findFirst({
       where: { projectId: parseInt(projectId), layersDone: 0 },
     });

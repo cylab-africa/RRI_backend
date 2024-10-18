@@ -7,8 +7,9 @@ const prisma = new PrismaClient()
 const strictAuthorize = async(req, res, next)=>{
     const token = req.headers["authorization"];
     if(token){
-        const user = verifyJWTToken(token);
-        if(user){
+        const user = await verifyJWTToken(token);
+        console.log('authorize1: ',user)
+        if(user && user.firstName!=='Anonymous'){
             // const actualUser = await prisma.user.findUnique({where:{id:user.id}})
             req.user = user
             // console.log(req.user)
@@ -19,7 +20,7 @@ const strictAuthorize = async(req, res, next)=>{
         
         return res.status(401).send({"message":"You do not have access to this page."})
     }
-    return next()
+    next();
 }
 
 // If you are not logged in an account will be created for you
@@ -31,16 +32,19 @@ const authorize = async (req, res, next)=>{
 
         if(token){
             
-            const user = verifyJWTToken(token);
-            if(user === false){
+            const verifyToken = await verifyJWTToken(token);
+            console.log('authorize: ',verifyToken)
+
+            if(verifyToken === false){
                 let user = await createAnonimousAccount();
                 delete user.user.password
                 // 202 to be used when an anonymous account is created
                 return res.status(202).send({"message":"Account created. Please use the token provided for anonymous authentication.", "data":user})
             }
-            if(user){
-                req.user = user
-                let realUser = await prisma.user.findUnique({where:{id:user.id}})
+            if(verifyToken){
+                req.user = verifyToken
+                console.log(req.user);
+                let realUser = await prisma.user.findUnique({where:{id:req.user.id}})
                 if(realUser === null){
                     let user = await createAnonimousAccount();
                     delete user.user.password
@@ -60,7 +64,7 @@ const authorize = async (req, res, next)=>{
         }
         return next()
     }catch(e){
-        // console.error(e)
+        console.error('morning: ',e)
        
         return res.status(500).send({"message":"Something went wrong!"})
     }

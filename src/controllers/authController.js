@@ -8,37 +8,45 @@ const prisma = new PrismaClient()
 
 
 const createAccount = async (req, res) => {
-  const{
+  const {
     email,
-      firstName,
-      lastName,
-      googleCredential
+    firstName,
+    lastName,
+    googleCredential
   } = req.body;
-  if (!email || !firstName|| !lastName|| !googleCredential) return res.status(400).json({ error: 'email and firstName and lastName and googleCredential are required' });
+  if (!email || !firstName || !lastName || !googleCredential) return res.status(400).json({ error: 'email and firstName and lastName and googleCredential are required' });
 
   try {
     const existingUser = await prisma.user.findUnique({
       where: { email: email }
     });
-    
+
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
-    
+
 
     // Insert user into the database with Prisma
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         email: email,
         firstName: firstName || null, // Nullable
-        password: "", 
-        lastName: lastName ||"",  
-        googleCredential:googleCredential||null              // Nullable
+        password: "",
+        lastName: lastName || "",
+        googleCredential: googleCredential || null              // Nullable
       },
     });
+    const accessToken = generateJWTToken(createdUser)
 
+    // const accessToken = jwt.sign(userExists, process.env.TOKEN_SECRET, { expiresIn: '1h'});
     // Send success response
-    return res.status(201).json({ success: true });
+    return res.status(201).json({
+      accessToken: accessToken,
+      user: createdUser,
+      userRegistered: true,
+      googleCredential: createdUser.googleCredential || null,
+      success: true
+    });
   } catch (err) {
     console.error("Error during user signup", err);
     return res.status(500).json({ success: false });
@@ -59,6 +67,7 @@ const checkUser = async (req, res) => {
         email: userEmail,
       },
       select: {
+        id:true,
         email: true,
         firstName: true,
         lastName: true,
@@ -67,18 +76,22 @@ const checkUser = async (req, res) => {
       },
     });
 
+
     // If user exists, return their information and googleCredential
     if (userExists) {
-      return res.json({ 
+      const accessToken = generateJWTToken(userExists)
+      console.log(userExists)
+      return res.json({
+        accessToken: accessToken,
         user: userExists,
         userRegistered: true,
         googleCredential: userExists.googleCredential || null  // Include googleCredential in response
       });
     } else {
       // If user does not exist, send response indicating they are not registered
-      return res.json({ 
+      return res.json({
         userRegistered: false,
-        googleCredential: null 
+        googleCredential: null
       });
     }
   } catch (err) {
@@ -87,19 +100,18 @@ const checkUser = async (req, res) => {
   }
 };
 
-const createAnonimousAccount = async()=>{
+const createAnonimousAccount = async () => {
   const userCount = await prisma.user.count()
-  const randEmail = `${parseInt(Math.random()*100000)}${userCount}@local.local`
-  const user = await prisma.user.create({data:{email:randEmail, password:"", firstName:"Anonymous", lastName:""}})
-  const simpleUser = {id:user.id, firstName:user.firstName, createdAt:user.createdAt}
-  const token =  generateJWTToken(simpleUser)
+  const randEmail = `${parseInt(Math.random() * 100000)}${userCount}@local.local`
+  const user = await prisma.user.create({ data: { email: randEmail, password: "", firstName: "Anonymous", lastName: "" } })
+  const simpleUser = { id: user.id, firstName: user.firstName, createdAt: user.createdAt }
+  const token = generateJWTToken(simpleUser)
 
-  return {token:token, user:user};
+  return { token: token, user: user };
 }
 
 module.exports = {
-    createAccount,
-    createAnonimousAccount,
-    checkUser
-  };
-  
+  createAccount,
+  createAnonimousAccount,
+  checkUser
+};
