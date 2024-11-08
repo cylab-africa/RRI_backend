@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,97 +7,119 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Define models
-
+// User table: Stores users with roles (ADMIN, USER, PROJECT_LEAD)
 model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  password    String?
-  firstName   String
-  lastName    String
-  // This should only be (ADMIN, USER, or PROJECT_LEAD) case-sensitive
-  privilege   String       @default("USER")
-  // Timestamp
-  createdAt   DateTime     @default(now())
-  projects Project[]  
-  googleCredential  String?      @unique
+  id                Int             @id @default(autoincrement())
+  email             String          @unique
+  password          String?
+  firstName         String
+  lastName          String
+  role              UserRole        @default(USER)
+  createdAt         DateTime        @default(now())
+  projects          Project[]
+  googleCredential  String?         @unique
 
   @@map("user")
 }
 
-model Project{
-  id             Int      @id @default(autoincrement())
-  name String
-  evaluations Evaluation[]
-  userId         Int
-  dateCreated    DateTime @default(now())
-  owner          User     @relation(fields: [userId], references: [id])
-  @@map("project")
-
+// Enum for user roles
+enum UserRole {
+  ADMIN
+  USER
+  PROJECT_LEAD
 }
 
+// Project table: Holds individual projects created by users
+model Project {
+  id               Int             @id @default(autoincrement())
+  name             String
+  evaluations      Evaluation[]
+  userId           Int
+  createdAt        DateTime        @default(now())
+  owner            User            @relation(fields: [userId], references: [id])
+
+  @@map("project")
+}
+
+// Evaluation table: Represents evaluations associated with projects
 model Evaluation {
-  id             Int      @id @default(autoincrement())
-  project        Project @relation(fields: [projectId], references: [id])   
-  projectId      Int
-  decription     String @default("")
-  // Layer1, Layer2, Layer3, Final 
-  score          Float []
-  answers        Answer[]
-  timeStarted    DateTime @default(now())
-  lastUpdateTime DateTime @updatedAt
-  // Display the entry question level 0
-  // Display other questions 5 per page level 1
-  // Display results level 2
-  // layerDone == 1 Then finished
-  layersDone     Int      @default(0)
+  id               Int             @id @default(autoincrement())
+  project          Project         @relation(fields: [projectId], references: [id])   
+  projectId        Int
+  description      String          @default("")
+  score          Float[]         // Array to hold scores per layer
+  answers          Answer[]
+  startTime        DateTime        @default(now())
+  lastUpdateTime   DateTime        @updatedAt
+  completedLayers  Int             @default(0) // Tracks layers completed (e.g., 1 = completed)
 
   @@map("evaluation")
 }
+// Layer table: Represents hierarchical layers with associated weights
+model Layer {
+  id               Int             @id @default(autoincrement())
+  name             String
+  order            Int             // Layer hierarchy level (1, 2, 3)
+  weight           Float           @default(0)
+  principles       Principle[]
 
+  @@map("layer")
+}
+
+// Principle table: Contains principles linked to specific layers and questions
+model Principle {
+  id               Int             @id @default(autoincrement())
+  name             String
+  //order            Int             // Order of importance within a layer
+  weight           Float           @default(0)
+  layer            Layer           @relation(fields: [layerId], references: [id])
+  layerId          Int
+  questions        Question[]
+
+  @@map("principle")
+}
+
+// Question table: Contains primary questions linked to principles and evaluations
 model Question {
-  id       Int      @id @default(autoincrement())
-  number Int
-  question String
-  layer    Layer    @relation(fields: [layerId], references: [id])
-  layerId  Int
-  weight Float @default(0)
-  subquestions SubQuestion []
+  id               Int             @id @default(autoincrement())
+  number            Int             // Order or number of the question
+  text             String          // Question content
+  principle        Principle       @relation(fields: [principleId], references: [id])
+  principleId      Int
+  subQuestions     SubQuestion[]
+
   @@map("question")
 }
 
-model SubQuestion{
-  id Int @id @default(autoincrement())
-  questionText String
-   // Score, Choice, Open
-  type String
-  // This is in percentages ex: 4 for 40% or 7 for 70%
-  weight Float @default(0)
-  question Question @relation(fields: [questionId], references: [id])
-  questionId Int
-   answers  Answer[]
+// SubQuestion table: Represents sub-questions associated with a main question
+model SubQuestion {
+  id               Int             @id @default(autoincrement())
+  text             String          @default("")// Sub-question content
+  type             String    // Type of sub-question: Score, Choice, Open
+  mainQuestion     Question        @relation(fields: [questionId], references: [id])
+  questionId       Int
+  answers          Answer[]
+
   @@map("subquestion")
 }
 
+// // Enum for question types
+// enum QuestionType {
+//   SCORE
+//   CHOICE
+//   OPEN
+// }
+
+// Answer table: Holds answers for sub-questions within evaluations
 model Answer {
-  id           Int        @id @default(autoincrement())
-  score        Float  @default(0)
-  answer   String @default("")
-  weight Float @default(10)
-  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
-  evaluationId Int
-  question     SubQuestion   @relation(fields: [questionId], references: [id])
-  questionId   Int
+  id               Int             @id @default(autoincrement())
+  score            Float           @default(0)
+  response         String          @default("") // User's answer text
+  evaluation       Evaluation      @relation(fields: [evaluationId], references: [id])
+  evaluationId     Int
+  subQuestion      SubQuestion     @relation(fields: [subQuestionId], references: [id])
+  subQuestionId    Int             @default(0)
 
   @@map("answer")
 }
 
-model Layer {
-  id        Int        @id @default(autoincrement())
-  name      String
-  value Int
-  weight Float @default(0)
-  questions Question[]
-
-  @@map("layer")
-}
