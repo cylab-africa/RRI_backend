@@ -1,80 +1,165 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+/**
+ * Fetch the weight of a principle from the database.
+ * @param {number} principleId - The ID of the principle.
+ * @returns {Promise<number>} - The weight of the principle.
+ */
+const getPrincipleWeightFromDB = async (principleId) => {
+  const principle = await prisma.principle.findUnique({
+    where: { id: principleId },
+    select: { weight: true }, // Fetch the weight of the principle
+  });
+  return principle ? principle.weight : 0;
+};
 
+/**
+ * Fetch the weight of a layer from the database.
+ * @param {number} layerId - The ID of the layer.
+ * @returns {Promise<number>} - The weight of the layer.
+ */
+const getLayerWeightFromDB = async (layerId) => {
+  const layer = await prisma.layer.findUnique({
+    where: { id: layerId },
+    select: { weight: true }, // Fetch the weight of the layer
+  });
+  return layer ? layer.weight : 0;
+};
 
-  const calculateAverageScore = async (subquestionScores)=>{
-      const layerOne = [];
-      const layerTwo = [];
-      const layerThree = [];
-      
-      let questions  = await prisma.question.findMany({
-        include: { layer: true, subquestions:true},
-      });
+/**
+ * Calculate the average score for each principle based on subquestion scores.
+ * 1. Iterate through each subquestion and find its corresponding principle.
+ * 2. Accumulate the scores for each subquestions for specific questions in principle.
+ * 3. Calculate the average score for each principle.
+ * @param {Array} subquestionScores - Array of objects containing scores for subquestions.
+ * @returns {Promise<Object>} - Object with average scores for each principle.
+ */
+const calculateAverageScorePerPrinciple = async (subquestionScores) => {
+  // Fetch all questions with their associated principles and subquestions
+  const questions = await prisma.question.findMany({
+    include: {
+      principle: {
+        include: {
+          layer: true, // Include the layer details for each principle
+        },
+      },
+      subQuestions: true, // Include the subquestions linked to each question
+    },
+  });
 
+  // Object to store the accumulated scores and counts for each principle
+  const principleScores = {};
 
-      subquestionScores.forEach(scoreEntry => {
-        const q_id = scoreEntry.question.questionId;
-        
-        const question = questions.find(q => q.id === q_id);
-    
-        const layer = question.layer;
-        if (layer.value === 1) {
-          layerOne.push(scoreEntry);
-        } else if (layer.value === 2) {
-          layerTwo.push(scoreEntry);
-        } else if (layer.value === 3) {
-          layerThree.push(scoreEntry);
-        }
-      });
-      
-     
-      
-      const layerOneAverage = calculateLayerAverage(layerOne, questions);
-      const layerTwoAverage = calculateLayerAverage(layerTwo, questions);
-      const layerThreeAverage = calculateLayerAverage(layerThree, questions);
-      
-      const totalAverage = calculateGeneralAverage(questions, layerOneAverage, layerTwoAverage, layerThreeAverage);
+  // Iterate over all subquestion scores to accumulate them under the corresponding principle
+  for (let scoreEntry of subquestionScores) {
+    const q_id = scoreEntry.question.questionId; // Get the question ID for the subquestion
+    const question = questions.find((q) => q.id === q_id); // Find the corresponding question
 
-      return [parseFloat((layerOneAverage*10).toFixed(1)), parseFloat((layerTwoAverage*10).toFixed(1)), parseFloat((layerThreeAverage*10).toFixed(1)), totalAverage*100]
+    const principle = question.principle.name; // Get the name of the principle linked to the question
+    const principleId = question.principle.id; // Get the principle ID
 
+    // Initialize tracking for the principle if not already done
+    if (!principleScores[principle]) {
+      principleScores[principle] = { totalScore: 0, count: 0 };
+    }
+
+    // Add the subquestion score to the principle's accumulated total
+    if (typeof scoreEntry.score === 'number') {
+      principleScores[principle].totalScore += scoreEntry.score; // Accumulate score
+      principleScores[principle].count += 1; // Increment the count for calculating the average
+    }
   }
-  
-  function calculateLayerAverage(layer, questions) {
 
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-    layer.forEach(scoreEntry => {
-      const q_id = scoreEntry.question.questionId;
-      const question = questions.find(q => q.id === q_id);
-      const subquestion = question.subquestions.find(sq => sq.id === scoreEntry.questionId);
+  // Calculate the average score for each principle and apply the principle's weight
+  const principleAverageScores = {};
+  for (const principle in principleScores) {
+    const avgPrincipleScore = principleScores[principle].totalScore / principleScores[principle].count;
 
-      const weight = subquestion.weight;
-      const score = scoreEntry.score;
-      if (typeof score === 'number') {
-        totalWeightedScore += score * weight;
-        totalWeight += weight;
+    // Fetch the weight of the principle from the database
+    const principleWeight = await getPrincipleWeightFromDB(principleScores[principle].id);
+
+    // Apply the principle's weight to the average score
+    principleAverageScores[principle] = avgPrincipleScore * principleWeight; // Weighted score for each principle
+  }
+
+  return principleAverageScores;
+};
+
+/**
+ * Calculate the score for each layer by summing up the weighted principle scores.
+ * 1. Sum the weighted scores of all principles within a layer.
+ * 2. Apply the layer's weight to calculate the final score for that layer.
+ * @param {Object} principleScores - Object containing the weighted scores for each principle.
+ * @returns {Promise<Object>} - Object containing the score for each layer.
+ */
+const calculateLayerScores = async (principleScores) => {
+  // Object to store the calculated scores for each layer (1, 2, 3)
+  const layerScores = { 1: 0, 2: 0, 3: 0 };
+
+  // Fetch all layers and their associated principles
+  const layers = await prisma.layer.findMany({
+    include: {
+      principles: true, // Include the principles associated with each layer
+    },
+  });
+
+  // Iterate through each layer to calculate its score based on principles
+  for (let layer of layers) {
+    let layerScore = 0;
+
+    // Sum the weighted scores of principles in this layer
+    layer.principles.forEach(principle => {
+      if (principleScores[principle.name]) {
+        layerScore += principleScores[principle.name]; // Add the weighted score of each principle
       }
     });
-    return totalWeight === 0 ? 0 : totalWeightedScore / totalWeight;
+
+    // Fetch the weight of the layer from the database and apply it
+    const layerWeight = await getLayerWeightFromDB(layer.id);
+    layerScores[layer.order] = layerScore * layerWeight; // Final score for the layer, adjusted by the layer's weight
   }
 
+  return layerScores;
+};
 
+/**
+ * Calculate the overall score by summing up the scores of all layers.
+ * 1. Sum the scores of each layer.
+ * 2. Return the final overall score as a percentage.
+ * @param {Object} layerScores - Object containing the scores for each layer.
+ * @returns {Promise<number>} - The final overall score as a percentage.
+ */
+const calculateOverallScore = async (layerScores) => {
+  // Sum up the scores of all layers
+  const totalScore = Object.values(layerScores).reduce((acc, score) => acc + score, 0);
 
-const calculateGeneralAverage =  (questions, layerOneAverage, layerTwoAverage, layerThreeAverage)=>{
-  const totalLayerWeight = questions.reduce((sum, q) => sum + q.weight, 0);
-  let avg = 
-            (layerOneAverage * 0.346 / 10) 
-            + (layerTwoAverage * 0.331 /10) 
-            + (layerThreeAverage * 0.323 /10) 
+  // Return the overall score as a percentage
+  return totalScore * 100; // Assuming the final score is represented as a percentage
+};
 
-  return avg
-}
+/**
+ * Main function to calculate the total scores for an evaluation.
+ * 1. Calculate the average scores for each principle.
+ * 2. Calculate the scores for each layer based on the principle scores.
+ * 3. Calculate the final overall score.
+ * @param {Array} subquestionScores - Array of objects containing the scores for subquestions.
+ * @returns {Promise<Object>} - Object containing the principle scores, layer scores, and the overall score.
+ */
+const calculateScores = async (subquestionScores) => {
+  // Step 1: Calculate average scores per principle
+  const principleScores = await calculateAverageScorePerPrinciple(subquestionScores);
 
+  // Step 2: Calculate the scores for each layer based on the principle scores
+  const layerScores = await calculateLayerScores(principleScores);
+
+  // Step 3: Calculate the overall score by summing layer scores
+  const overallScore = await calculateOverallScore(layerScores);
+
+  // Return the result containing principle scores, layer scores, and overall score
+  return { principleScores, layerScores, overallScore };
+};
 
 module.exports = {
-  // submittedScoresCheck,
-  // calculateScore,
-  // calculateAverageScore,
-  calculateAverageScore
+  calculateScores,
 };

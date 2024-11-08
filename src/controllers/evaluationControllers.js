@@ -1,12 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
-const { submittedScoresCheck, calculateScore, calculateAverageScore } = require("../utilities/score");
-// const token = process.env.TOKEN_SECRET;
+const { calculateScores } = require("../utilities/score");
 
 const prisma = new PrismaClient();
 
+// Get layers with their weights from the database
 const getLayers = async (req, res) => {
   try {
-    // Check if there is already some layers in the DB
+    // Retrieve all layers from the database
     const layers = await prisma.layer.findMany({});
     return res.status(200).send({ layers: layers });
   } catch (e) {
@@ -14,69 +14,80 @@ const getLayers = async (req, res) => {
   }
 };
 
+// Get principles linked to layers, including their weights
+const getPrinciples = async (req, res) => {
+  try {
+    // Fetch principles from the database, including their associated layer and weight
+    const principles = await prisma.principle.findMany({
+      include: {
+        layer: true,  // Include associated layer data for each principle
+      },
+    });
+    return res.status(200).send({ principles: principles });
+  } catch (e) {
+    return res.status(500).send({ error: e });
+  }
+};
 
-const generateReport = async(req, res) =>{
+// Generate a report based on the evaluation of a project
+const generateReport = async (req, res) => {
+  try {
+    let user = req.user;
+    let { pid } = req.params;
+    let project;
 
-    try{
-      let user = req.user;
-      // req.params.userId
-      let { pid } = req.params;
-      let project;
-      // simple = (simple === 'true')
-      project = await prisma.evaluation.findFirst({
-        where: { id: parseInt(pid) },
-        include: { answers:{include:{question:true}} },
-      }); 
+    // Fetch the project evaluation by its ID, including answers to questions
+    project = await prisma.evaluation.findFirst({
+      where: { id: parseInt(pid) },
+      include: { answers: { include: { question: true } } },
+    });
 
-      return res.status(200).send({"project": project})
-    }catch(e){
-        console.log(e)
-        return res.status(500).send({ error: e });
+    // Return project data including answers and questions
+    return res.status(200).send({ project: project });
+  } catch (e) {
+    return res.status(500).send({ error: e });
+  }
+};
 
-    }
-}
-
-
+// Get questions for a project, optionally filtered by layer ID
 const getQuestions = async (req, res) => {
   try {
-    // Get the layer id (This is not mandatory)
     const { id } = req.query;
     let questions = [];
+    
+    // If a layer ID is provided, fetch questions related to that layer
     if (id) {
       questions = await prisma.question.findMany({
-        where: {
-          layerId: parseInt(id),
-        },
-        include: {
-          subquestions: true,
-        },
-        orderBy: [
-          {
-            number: "asc",
-          },
-        ],
+        where: { layerId: parseInt(id) },
+        include: { subquestions: true },
+        orderBy: [{ number: "asc" }],
       });
     } else {
+      // Fetch all questions if no layer ID is provided
       questions = await prisma.question.findMany({
-        include: {
-          subquestions: true,
-        },
+        include: { subquestions: true },
       });
     }
+
     return res.status(200).send({ questions: questions });
   } catch (e) {
     return res.status(500).send({ error: e });
   }
 };
 
+// Create a new project for the user
 const createProject = async (req, res) => {
   try {
     const { projectName } = req.body;
     let user = req.user;
+    
+    // Check if the project already exists for the user
     let project = await prisma.project.findFirst({
       where: { name: projectName, userId: user.id },
       include: { evaluations: true },
     });
+
+    // If the project does not exist, create it
     if (!project) {
       project = await prisma.project.create({
         data: {
@@ -86,103 +97,102 @@ const createProject = async (req, res) => {
       });
     }
 
+    // Check if an evaluation exists for the project and create one if needed
     let evaluation = await prisma.evaluation.findFirst({
-      where: { projectId: project.id, layersDone: 0 },
+      where: { projectId: project.id, completedLayers: 0 },
     });
     if (!evaluation) {
       evaluation = await prisma.evaluation.create({
         data: { projectId: project.id, score: [0, 0, 0, 0] },
       });
-      return res
-        .status(200)
-        .send({ message: "Project created.", data: project });
+      return res.status(200).send({ message: "Project created.", data: project });
     }
-    return res
-      .status(200)
-      .send({ message: `Let's proceed with ${projectName}.`, data: project });
+    
+    return res.status(200).send({ message: `Let's proceed with ${projectName}.`, data: project });
   } catch (e) {
+    
+  console.log('error project',e);
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
 
+// Get all projects for the user
 const getProjects = async (req, res) => {
   try {
     let user = req.user;
     let { simple } = req.query;
     let projects = [];
-    simple = (simple === 'true')
+
+    simple = (simple === 'true');
     projects = await prisma.project.findMany({
       where: { userId: user.id },
       include: { evaluations: true },
     });
+
+    // Calculate and update scores for each project using the utility function
     await Promise.all(
       projects.map(async (project) => {
         const evaluation = await prisma.evaluation.findFirst({
           where: { projectId: project.id },
         });
-        const answeres = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-          },
-          include:{question:true}
-        });
-       
-        const score = await calculateAverageScore(answeres)
-       
-        let updatedEvaluation = await prisma.evaluation.update({
-          where: { id: evaluation.id },
-          data: { score: score },
+
+        const answers = await prisma.answer.findMany({
+          where: { evaluationId: evaluation.id },
+          include: { question: true },
         });
 
-        return updatedEvaluation;
+        // Calculate the average score for the answers and update the evaluation
+        const { principleScores, layerScores, overallScore } = await calculateScores(answers);
+        await prisma.evaluation.update({
+          where: { id: evaluation.id },
+          data: { score: overallScore },
+        });
       })
     );
+
     let sortedProjects;
     if (simple === true) {
       sortedProjects = await prisma.project.findMany({
         where: { userId: user.id },
-        
-        select: {
-          name:true,
-         
-        },
+        select: { name: true },
       });
-    }else{
-
+    } else {
       sortedProjects = await prisma.project.findMany({
         where: { userId: user.id },
         include: {
           evaluations: {
-            orderBy: {
-              timeStarted: "desc",
-            },
+            orderBy: { timeStarted: "desc" },
           },
         },
       });
-      
     }
+
     return res.status(200).send({ data: sortedProjects });
   } catch (e) {
-    // console.log(e)
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
 
+// Submit answers for a project evaluation
 const submitAnswers = async (req, res) => {
   try {
     const { answers, projectId } = req.body;
     const user = req.user;
-    console.log(user)
+
+    // Fetch the evaluation for the project
     const evaluation = await prisma.evaluation.findFirst({
-      where: { projectId: parseInt(projectId), layersDone: 0 },
+      where: { projectId: parseInt(projectId), completedLayers: 0 },
     });
-    if (evaluation === null) {
+    if (!evaluation) {
       return res.status(404).send({ message: "Project evaluation not found." });
     }
+
+    // Ensure at least one answer is provided
     if (answers.length < 1) {
       return res.status(401).send({ message: "You need to submit answers." });
     }
 
+    // Process each answer and store it in the database
     answers.forEach(async (userAnswer) => {
       const question = await prisma.subQuestion.findFirst({
         where: { id: userAnswer.id },
@@ -192,17 +202,17 @@ const submitAnswers = async (req, res) => {
           where: { questionId: userAnswer.id, evaluationId: evaluation.id },
         });
 
+        // Handle text-type questions differently by assigning a default score
         if (question.type === "text") {
           if (answer) {
             answer.answer = userAnswer.answer;
           } else {
-            answer = await prisma.answer.create({
+            await prisma.answer.create({
               data: {
                 score: 10,
                 answer: userAnswer.answer,
                 questionId: question.id,
                 evaluationId: evaluation.id,
-                weight: question.weight,
               },
             });
           }
@@ -210,12 +220,11 @@ const submitAnswers = async (req, res) => {
           if (answer) {
             answer.score = userAnswer.score;
           } else {
-            answer = await prisma.answer.create({
+            await prisma.answer.create({
               data: {
                 score: userAnswer.score,
                 questionId: question.id,
                 evaluationId: evaluation.id,
-                weight: question.weight,
               },
             });
           }
@@ -223,42 +232,40 @@ const submitAnswers = async (req, res) => {
       }
     });
 
-
+    // Calculate scores after submission
     const evaluationAnswers = await prisma.answer.findMany({
       where: { evaluationId: evaluation.id },
-      include:{question:true}
-    });
-    const score = await calculateAverageScore(evaluationAnswers)
-    updatedEvaluation = await prisma.evaluation.update({
-      where: { id: evaluation.id },
-      data: { layersDone: 1 },
+      include: { question: true },
     });
 
+    const { principleScores, layerScores, overallScore } = await calculateScores(evaluationAnswers);
     
-    // let updatedEvaluation = await prisma.evaluation.update({
-    //   where: { id: evaluation.id },
-    //   data: { score: score, layersDone: 1 },
-    // });
+    // Mark the evaluation as complete and update the score
+    const updatedEvaluation = await prisma.evaluation.update({
+      where: { id: evaluation.id },
+      data: { score: overallScore, completedLayers: 1 },
+    });
+
     return res.status(200).send({
-      message: "Submitted successifully",
+      message: "Submitted successfully",
       evaluation: updatedEvaluation,
     });
   } catch (e) {
-    // console.log(e);
     return res.status(500).send({ message: e });
   }
 };
 
+// Get all evaluations for the user, optionally filtered by projectId
 const getEvaluations = async (req, res) => {
   try {
     const { projectId } = req.query;
     const user = req.user;
     let evaluations = [];
+
     if (projectId) {
       const project = await prisma.project.findFirst({
         where: { id: parseInt(projectId) },
       });
-
       evaluations = await prisma.evaluation.findMany({
         where: { projectId: project.id, userId: user.id },
       });
@@ -268,51 +275,19 @@ const getEvaluations = async (req, res) => {
       });
     }
 
-    let updatedEvaluations = await Promise.all(
-      evaluations.map(async (evaluation) => {
-        const answeresLayerOne = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-            question: { question: { layer: { value: 1 } } },
-          },
-        });
-        const answeresLayerTwo = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-            question: { question: { layer: { value: 2 } } },
-          },
-        });
-        const answeresLayerThree = await prisma.answer.findMany({
-          where: {
-            evaluationId: evaluation.id,
-            question: { question: { layer: { value: 3 } } },
-          },
-        });
-        let score = calculateScore(
-          answeresLayerOne,
-          answeresLayerTwo,
-          answeresLayerThree
-        );
-        let updatedEvaluation = await prisma.evaluation.update({
-          where: { id: evaluation.id },
-          data: { score: score },
-        });
-        return updatedEvaluation;
-      })
-    );
-
-    return res.status(200).send({ data: updatedEvaluations });
+    return res.status(200).send({ evaluations: evaluations });
   } catch (e) {
-    return res.status(500).send({ message: "Something went wrong." });
+    return res.status(500).send({ message: e });
   }
 };
 
 module.exports = {
   getLayers,
+  getPrinciples,
+  generateReport,
   getQuestions,
-  submitAnswers,
   createProject,
-  getEvaluations,
   getProjects,
-  generateReport
+  submitAnswers,
+  getEvaluations,
 };

@@ -1,329 +1,225 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient, QuestionType } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+// Function to add layers and principles to the database
+const addLayersAndPrinciples = async () => {
+  // Add Layer 1
+  const layer1 = await prisma.layer.create({
+    data: { name: "LAYER 1", order: 1, weight: 0.346 },  
+  });
+
+  // Add principles to Layer 1
+  await prisma.principle.createMany({
+    data: [
+      { name: "Benefits to Society & Public Engagement", weight: 0.319, layerId: layer1.id },
+      { name: "Ethics & Governance", weight: 0.339, layerId: layer1.id },
+      { name: "Privacy & Security", weight: 0.342, layerId: layer1.id },
+    ],
+  });
+
+  // Add Layer 2
+  const layer2 = await prisma.layer.create({
+    data: { name: "LAYER 2", order: 2, weight: 0.331 },  
+  });
+
+  // Add principles to Layer 2
+  await prisma.principle.createMany({
+    data: [
+      { name: "Fairness, Gender Equality & Inclusivity", weight: 0.488, layerId: layer2.id },
+      { name: "Responsiveness, Transparency & Accountability", weight: 0.512, layerId: layer2.id },
+    ],
+  });
+
+  // Add Layer 3
+  const layer3 = await prisma.layer.create({
+    data: { name: "LAYER 3", order: 3, weight: 0.323 },  
+  });
+
+  // Add principles to Layer 3
+  await prisma.principle.createMany({
+    data: [
+      { name: "Human Agency & Oversight", weight: 0.7, layerId: layer3.id },
+      { name: "Open Access", weight: 0.3, layerId: layer3.id },  // New principle added to Layer 3
+    ],
+  });
+};
+
+// Function to create questions and subquestions in the database
 const createQuestions = async () => {
+  // Fetch all principles from the database
+  const principles = await prisma.principle.findMany({});
+  
+  // Define the questions along with their subquestions
   let questions = [
     {
-      id: 1,
-      layerId: 1,
-      question:
-        "What societal problem does your innovation address, and how does it positively impact the local community or society as a whole?",
-       dimention:"Benefits to Society & Public Engagement",
-       weight:0.319/2,
+      number: 1,
+      principleName: "Benefits to Society & Public Engagement",
+      questionText: "What societal problem does your innovation address, and how does it positively impact the local community or society as a whole?",
       subquestions: [
-        {
-          id: 1,
-          type: "text",
-          weight: 5,
-          questionText:
-            "Briefly describe the societal problem that your innovation or research project addresses and how it positively impacts the local community or society as a whole.",
-        },
-        {
-          id: 2,
-          type: "scale",
-          weight: 5,
-          questionText:
-            "How well does your research or innovation project positively impact the local community or society as a whole?",
-        },
+        { type: "text", questionText: "Briefly describe the societal problem that your innovation or research project addresses." },
+        { type: "scale", questionText: "How well does your research or innovation project positively impact the local community or society as a whole?" },
       ],
     },
     {
-      id: 2,
-      layerId: 1,
-      question: "How do you involve the local community in the design and implementation of your innovation to ensure their needs and perspectives are considered?",
-      dimention:"Benefits to Society & Public Engagement",
-      weight:0.319/2,
+      number: 2,
+      principleName: "Benefits to Society & Public Engagement",
+      questionText: "How do you involve the local community in the design and implementation of your innovation to ensure their needs and perspectives are considered?",
       subquestions: [
-        {
-          id: 3,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "You involve the local community in the design and implementation of your innovation to ensure their needs and perspectives are considered.",
-        },
+        { type: "choice", questionText: "You involve the local community in the design and implementation of your innovation to ensure their needs and perspectives are considered." },
       ],
     },
     {
-      id: 3,
-      layerId: 1,
-      question: "Can you provide insights into the ethical considerations that have guided the development and deployment of your innovation?",
-      dimention :"Ethics & Governance",
-      weight:0.339/2,
+      number: 3,
+      principleName: "Ethics & Governance",
+      questionText: "Can you provide insights into the ethical considerations that have guided the development and deployment of your innovation?",
       subquestions: [
-        {
-          id: 4,
-          type: "scale",
-          weight: 5,
-          questionText:
-            "How well do you consider ethical concerns in the development of your innovation?",
-        },
-        {
-          id: 5,
-          type: "scale",
-          weight: 5,
-          questionText:
-            "How well do you consider ethical concerns in the deployment of your innovation?.",
-        },
+        { type: "scale", questionText: "How well do you consider ethical concerns in the development of your innovation?" },
+        { type: "scale", questionText: "How well do you consider ethical concerns in the deployment of your innovation?" },
       ],
     },
     {
-      id: 4,
-      layerId: 1,
-      question: "What governance mechanisms are in place to ensure responsible decision-making and compliance with relevant regulations and ethical guidelines?",
-      dimention :"Ethics & Governance",
-      weight:0.339/2,
+      number: 4,
+      principleName: "Ethics & Governance",
+      questionText: "What governance mechanisms are in place to ensure responsible decision-making and compliance with relevant regulations and ethical guidelines?",
       subquestions: [
-        {
-          id: 6,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "We have implemented governance mechanisms to ensure responsible decision-making and compliance with relevant regulations and ethical guidelines.",
-        },
+        { type: "choice", questionText: "We have implemented governance mechanisms to ensure responsible decision-making and compliance with relevant regulations and ethical guidelines." },
       ],
     },
     {
-      id: 5,
-      layerId: 1,
-      question: "How do you protect the privacy and security of individuals' data collected by your innovation, including obtaining consent and preventing unauthorized access?",
-      dimention :"Privacy and Security",
-      weight:0.342/2,
+      number: 5,
+      principleName: "Privacy & Security",
+      questionText: "How do you protect the privacy and security of individuals' data collected by your innovation, including obtaining consent and preventing unauthorized access?",
       subquestions: [
-        {
-          id: 7,
-          type: "scale",
-          weight: 2.5,
-          questionText:
-            "How well do you protect the privacy of individuals’ data collected by your innovation or research project?",
-        },
-        {
-          id: 8,
-          type: "choice",
-          weight: 2.5,
-          questionText:
-            "You ensure that you obtain informed consent before collecting data from individuals.",
-        },
-        {
-          id: 9,
-          type: "choice",
-          weight: 2.5,
-          questionText:
-            "You implement security mechanisms to prevent unauthorized access to data.",
-        },
-        {
-          id: 10,
-          type: "choice",
-          weight: 2.5,
-          questionText:
-            "You implement security mechanisms to protect individuals’ data at rest and on transit.",
-        },
+        { type: "scale", questionText: "How well do you protect the privacy of individuals’ data collected by your innovation or research project?" },
+        { type: "choice", questionText: "You ensure that you obtain informed consent before collecting data from individuals." },
+        { type: "choice", questionText: "You implement security mechanisms to prevent unauthorized access to data." },
+        { type: "choice", questionText: "You implement security mechanisms to protect individuals’ data at rest and in transit." },
       ],
     },
     {
-      id: 6,
-      layerId: 1,
-      question: "In case of security incidents or breaches, how do you handle and communicate such events transparently to affected parties and stakeholders?",
-      dimention :"Privacy and Security",
-      weight:0.342/2,
+      number: 6,
+      principleName: "Privacy & Security",
+      questionText: "In case of security incidents or breaches, how do you handle and communicate such events transparently to affected parties and stakeholders?",
       subquestions: [
-        {
-          id: 11,
-          type: "choice",
-          weight: 5,
-          questionText:
-            "You transparently communicate security incidents and breaches  to affected parties and stakeholders.",
-        },
-        {
-          id: 12,
-          type: "choice",
-          weight: 5,
-          questionText:
-            "You transparently handle security incidents and breaches  with affected parties and stakeholders.",
-        },
-      ],
-    },
-
-    {
-      id: 7,
-      layerId: 2,
-      question: "What steps do you take to identify and address biases in data collection, analysis, and interpretation to ensure fair and equitable outcomes?",
-      dimention :"Fairness, gender equality & inclusivity",
-      weight:0.488/3,
-      subquestions: [
-        {
-          id: 13,
-          type: "scale",
-          weight: 1,
-          questionText:
-            "How well do you take steps to identify and address biases in data collection, analysis, and interpretation to ensure fair and equitable outcomes?",
-        },
-      ],
-    },
-    
-    {
-      id: 8,
-      layerId: 2,
-      question: "How do you ensure that your innovation is accessible and affordable to individuals and communities, especially those in remote or underserved areas?",
-      dimention :"Fairness, gender equality & inclusivity",
-      weight:0.488/3,
-      subquestions: [
-        {
-          id: 14,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "We plan to ensure that your innovation or research project is accessible and affordable to individuals and communities, especially those in remote or underserved areas.",
-        },
+        { type: "choice", questionText: "You transparently communicate security incidents and breaches to affected parties and stakeholders." },
+        { type: "choice", questionText: "You transparently handle security incidents and breaches with affected parties and stakeholders." },
       ],
     },
     {
-      id: 9,
-      layerId: 2,
-      question: "In what ways does your innovation incorporate inclusivity, considering the needs and perspectives of individuals with disabilities or those from different cultural backgrounds?",
-      dimention :"Fairness, gender equality & inclusivity",
-      weight:0.488/3,
+      number: 7,
+      principleName: "Fairness, Gender Equality & Inclusivity",
+      questionText: "What steps do you take to identify and address biases in data collection, analysis, and interpretation to ensure fair and equitable outcomes?",
       subquestions: [
-        {
-          id: 15,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "Your  innovation or research project incorporates inclusivity and considers the needs and perspectives of individuals with disabilities or those from different cultural backgrounds.",
-        },
+        { type: "scale", questionText: "How well do you take steps to identify and address biases in data collection, analysis, and interpretation to ensure fair and equitable outcomes?" },
       ],
     },
     {
-      id: 10,
-      layerId: 2,
-      question: "What accountability mechanisms are in place to ensure that your innovation's outcomes and consequences are tracked, evaluated, and communicated to relevant stakeholders?",
-      dimention :"Responsiveness, transparency, & accountability",
-      weight:0.512,
+      number: 8,
+      principleName: "Fairness, Gender Equality & Inclusivity",
+      questionText: "How do you ensure that your innovation is accessible and affordable to individuals and communities, especially those in remote or underserved areas?",
       subquestions: [
-        {
-          id: 16,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "You have put in place accountability mechanisms to ensure that your innovation or research project's outcomes and consequences are tracked, evaluated, and communicated to relevant stakeholders.",
-        },
+        { type: "choice", questionText: "We plan to ensure that your innovation or research project is accessible and affordable to individuals and communities, especially those in remote or underserved areas." },
       ],
     },
     {
-      id: 11,
-      layerId: 2,
-      question: "How do you ensure that your innovation's data and findings are accessible and understandable to individuals from diverse educational and linguistic backgrounds?",
-      dimention:"Fairness, gender equality & inclusivity",
-      weight:0.488/4,
+      number: 9,
+      principleName: "Fairness, Gender Equality & Inclusivity",
+      questionText: "In what ways does your innovation incorporate inclusivity, considering the needs and perspectives of individuals with disabilities or those from different cultural backgrounds?",
       subquestions: [
-        {
-          id: 17,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "You ensure that your innovation or research project's data and findings are accessible and understandable to individuals from diverse educational and linguistic backgrounds.",
-        },
-      ],
-    },
-
-    {
-      id: 12,
-      layerId: 3,
-      question: "How do you ensure that individuals and communities have the necessary information and autonomy to make informed decisions about their participation in and interactions with your innovation.",
-      dimention :"Human agency and oversight",
-      weight:0.5,
-      subquestions: [
-        {
-          id: 18,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "You ensure that individuals and communities have the necessary information and autonomy to make informed decisions about their participation in and interactions with your innovation or research project.",
-        },
+        { type: "choice", questionText: "Your innovation or research project incorporates inclusivity and considers the needs and perspectives of individuals with disabilities or those from different cultural backgrounds." },
       ],
     },
     {
-      id: 13,
-      layerId: 3,
-      question: "How do you ensure that human values and ethical considerations are integrated into the development and deployment of the innovation, and that these values guide its decision-making processes?",
-      dimention :"Human agency and oversight",
-      weight:0.5,
+      number: 10,
+      principleName: "Responsiveness, Transparency & Accountability",
+      questionText: "What accountability mechanisms are in place to ensure that your innovation's outcomes and consequences are tracked, evaluated, and communicated to relevant stakeholders?",
       subquestions: [
-        {
-          id: 19,
-          type: "choice",
-          weight: 1,
-          questionText:
-            "You ensure that human values and ethical considerations are integrated into the development and deployment of the innovation, and that these values guide its decision-making processes.",
-        },
+        { type: "choice", questionText: "You have put in place accountability mechanisms to ensure that your innovation or research project's outcomes and consequences are tracked, evaluated, and communicated to relevant stakeholders." },
+      ],
+    },
+    {
+      number: 11,
+      principleName: "Responsiveness, Transparency & Accountability",
+      questionText: "How do you ensure that your innovation's data and findings are accessible and understandable to individuals from diverse educational and linguistic backgrounds?",
+      subquestions: [
+        { type: "choice", questionText: "You ensure that your innovation or research project's data and findings are accessible and understandable to individuals from diverse educational and linguistic backgrounds." },
+      ],
+    },
+    {
+      number: 12,
+      principleName: "Human Agency & Oversight",
+      questionText: "How do you ensure that individuals and communities have the necessary information and autonomy to make informed decisions about their participation in and interactions with your innovation?",
+      subquestions: [
+        { type: "choice", questionText: "You ensure that individuals and communities have the necessary information and autonomy to make informed decisions about their participation in and interactions with your innovation or research project." },
+      ],
+    },
+    {
+      number: 13,
+      principleName: "Human Agency & Oversight",
+      questionText: "How do you ensure that human values and ethical considerations are integrated into the development and deployment of the innovation, and that these values guide its decision-making processes?",
+      subquestions: [
+        { type: "choice", questionText: "You ensure that human values and ethical considerations are integrated into the development and deployment of the innovation, and that these values guide its decision-making processes." },
+      ],
+    },
+    {
+      //This question was left out....add it on the front end too
+      number: 14,
+      principleName: "Open Access",
+      questionText: "How do you ensure that the data, findings, and outcomes of your innovation are openly accessible to the public, and that they contribute to a broader knowledge base?",
+      subquestions: [
+        { type: "choice", questionText: "You ensure that the data, findings, and outcomes of your innovation are openly accessible to the public and contribute to a broader knowledge base." },
       ],
     },
   ];
 
-
-  questions.forEach(async (question) => {
-    let layers = await prisma.layer.findMany({});
-    let layerId = layers[0].id;
-    if (question.layerId === 2) {
-      layerId = layers[1].id;
-    } else if (question.layerId === 3) {
-      layerId = layers[2].id;
-    }
-    const que = await prisma.question.create({
-      data: {
-        number: question.id,
-        question: question.question,
-        layerId: layerId,
-        weight: question.weight
-      },
-    });
-
-    question.subquestions.forEach(async (subQuestion) => {
-      await prisma.subQuestion.create({
+  // Loop through the questions and create them in the database
+  for (const question of questions) {
+    // Find the principle related to the question
+    const principle = principles.find(p => p.name === question.principleName);
+    if (principle) {
+      // Create the main question
+      const createdQuestion = await prisma.question.create({
         data: {
-          questionId: que.id,
-          questionText: subQuestion.questionText,
-          type: subQuestion.type,
-          weight: subQuestion.weight,
+          number: question.number,
+          text: question.questionText,
+          principleId: principle.id,
         },
       });
-    });
-  });
+      
+      // Create each subquestion for the current question
+      for (const subquestion of question.subquestions ) {
+        await prisma.subQuestion.create({
+          data: {
+            questionId: createdQuestion.id,
+            text: subquestion.questionText,
+            type: subquestion.type,
+          },
+        });
+      }
+    }
+  }
 };
 
-const addLayers = async () => {
-  const layer1 = await prisma.layer.create({
-    data: { name: "LAYER 1", value: 1, weight: 0.346 },
-  });
-  const layer2 = await prisma.layer.create({
-    data: { name: "LAYER 2", value: 2, weight: 0.331},
-  });
-  const layer3 = await prisma.layer.create({
-    data: { name: "LAYER 3", value: 3 , weight: 0.323},
-  });
-};
-
-const deleteBD = async () => {
+// Function to delete all data in the database
+const deleteDB = async () => {
   await prisma.answer.deleteMany({});
   await prisma.subQuestion.deleteMany({});
   await prisma.question.deleteMany({});
+  await prisma.principle.deleteMany({});
   await prisma.layer.deleteMany({});
   await prisma.evaluation.deleteMany({});
   await prisma.project.deleteMany({});
-
-  // await prisma.evaluation.updateMany({ data: { layersDone: 0 } });
 };
 
-const reInitBD = async () => {
-  console.info("Re initializing the DB .....");
-  // Delete questions and layers
-  await deleteBD();
-  // Add layers
-  await addLayers();
-  // Add questions
+// Function to reinitialize the database by deleting existing data and adding fresh layers, principles, and questions
+const reInitDB = async () => {
+  console.info("Reinitializing the DB...");
+  await deleteDB();
+  await addLayersAndPrinciples();
   await createQuestions();
-  console.info("DB Init Finished .....");
+  console.info("DB Init Finished...");
 };
 
-// Re init the DB ...
-reInitBD();
+// Run the reinitialization process
+reInitDB();

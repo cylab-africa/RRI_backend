@@ -33,7 +33,6 @@ const authorize = async (req, res, next)=>{
         if(token){
             
             const verifyToken = await verifyJWTToken(token);
-            console.log('authorize: ',verifyToken)
 
             if(verifyToken === false){
                 let user = await createAnonimousAccount();
@@ -66,7 +65,7 @@ const authorize = async (req, res, next)=>{
     }catch(e){
         console.error('morning: ',e)
        
-        return res.status(500).send({"message":"Something went wrong!"})
+        return res.status(500).send({"message auth":"Something went wrong! "+e})
     }
 }
 
