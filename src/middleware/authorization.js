@@ -8,7 +8,6 @@ const strictAuthorize = async (req, res, next) => {
     const token = req.headers["authorization"];
     if (token) {
         const user = await verifyJWTToken(token);
-        console.log('authorize1: ', user)
         if (user && user.firstName !== 'Anonymous') {
             // const actualUser = await prisma.user.findUnique({where:{id:user.id}})
             req.user = user

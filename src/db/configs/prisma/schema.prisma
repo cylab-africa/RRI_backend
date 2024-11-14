@@ -48,6 +48,8 @@ model Evaluation {
   projectId        Int
   description      String          @default("")
   score          Float[]         // Array to hold scores per layer
+  principleScores  Json?            // Stores scores for each principle as JSON
+  questionScores   Json?
   answers          Answer[]
   startTime        DateTime        @default(now())
   lastUpdateTime   DateTime        @updatedAt

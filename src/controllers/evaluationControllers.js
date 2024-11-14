@@ -39,9 +39,11 @@ const generateReport = async (req, res) => {
     // Fetch the project evaluation by its ID, including answers to questions
     project = await prisma.evaluation.findFirst({
       where: { id: parseInt(pid) },
-      include: { answers: { include: { subQuestion: true } } },
+      include: {
+        answers: { include: { subQuestion: true } }
+      },
     });
-
+    console.log('project.principleScores ',project.principleScores);
     // Return project data including answers and questions
     return res.status(200).send({ project: project });
   } catch (e) {
@@ -107,20 +109,64 @@ const createProject = async (req, res) => {
     let evaluation = await prisma.evaluation.findFirst({
       where: { projectId: project.id, completedLayers: 0 },
     });
+
     if (!evaluation) {
+      const principleScores = {
+        "Benefits to Society & Public Engagement": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Ethics & Governance": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Privacy & Security": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Fairness, Gender Equality & Inclusivity": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Responsiveness, Transparency & Accountability": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Human Agency & Oversight": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+        "Open Access": {
+          totalScore: 0,
+          count: 0,
+          avg: 0,
+        },
+      };
+
       evaluation = await prisma.evaluation.create({
-        data: { projectId: project.id, score: [0, 0, 0, 0] },
+        data: {
+          projectId: project.id,
+          score: [0, 0, 0, 0],
+          principleScores: principleScores, // No extra braces
+          questionScores: {}
+        },
       });
       return res.status(200).send({ message: "Project created.", data: project });
     }
 
     return res.status(200).send({ message: `Let's proceed with ${projectName}.`, data: project });
   } catch (e) {
-
     console.log('error project', e);
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
+
 
 // Get all projects for the user
 const getProjects = async (req, res) => {
@@ -135,7 +181,6 @@ const getProjects = async (req, res) => {
       include: { evaluations: true },
     });
 
-
     // Calculate and update scores for each project using the utility function
     await Promise.all(
       projects.map(async (project) => {
@@ -143,22 +188,25 @@ const getProjects = async (req, res) => {
           where: { projectId: project.id },
         });
 
-
-
         const answers = evaluation ? await prisma.answer.findMany({
           where: { evaluationId: evaluation?.id },
           include: { subQuestion: true },
         }) : null;
         const projectscores = await calculateScores(answers);
+        const principleScores = projectscores.principleScores;
+        const questionScores = projectscores.questionScores;
+
         let layerScoresArray = Object.values(projectscores?.layerScores).map(entry => entry.totalScore * 100);
 
         layerScoresArray.push(projectscores.overallScore);
 
-        // console.log('layer score: ', layerScoresArray)
+        console.log('project score: ', projectscores)
         await prisma.evaluation.update({
           where: { id: evaluation.id },
           data: {
             score: { set: layerScoresArray },
+            principleScores: principleScores,
+            questionScores: questionScores,
           },
         });
       })
@@ -272,7 +320,8 @@ const submitAnswers = async (req, res) => {
     }
 
     layerScoresArray.push(projectscores.overallScore);
-
+    const principleScores = projectscores.principleScores;
+    const questionScores = projectscores.questionScores;
     if (layerScoresArray.some(isNaN)) {
       console.warn("layerScoresArray contains NaN values after adding overallScore:", layerScoresArray);
     }
@@ -282,6 +331,8 @@ const submitAnswers = async (req, res) => {
       where: { id: evaluation.id },
       data: {
         score: { set: layerScoresArray }, // Use `set` to replace the entire array
+        principleScores: principleScores,
+        questionScores: questionScores,
         completedLayers: 1,
       },
     });
