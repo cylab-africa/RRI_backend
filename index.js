@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 var app = express();
 const {testGetWay} = require('./src/controllers/testController')
 const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects, generateReport} = require('./src/controllers/evaluationControllers');
-const { authorize, strictAuthorize } = require('./src/middleware/authorization');
+const {  strictAuthorize } = require('./src/middleware/authorization');
 const { createAccount, checkUser } = require('./src/controllers/authController');
 // require('./auth/auth')
 const PORT = process.env.PORT
@@ -30,8 +30,8 @@ app.use(cookieParser())
 app.get('/api/', testGetWay)
 app.get("/api/layer", getLayers)
 app.get('/api/questions', getQuestions)
-app.post('/api/answers', authorize, submitAnswers)
-app.post('/api/project', authorize, createProject)
+app.post('/api/answers', strictAuthorize, submitAnswers)
+app.post('/api/project', strictAuthorize, createProject)
 app.get("/api/evaluation", strictAuthorize, getEvaluations)
 app.get("/api/projects", strictAuthorize, getProjects)
 app.get("/api/report/:pid", strictAuthorize, generateReport)

@@ -23,7 +23,6 @@ const verifyJWTToken = async(token) => {
             resolve(decodedUser);
         });
     });
-    console.log('decoded:',decoded)
     return decoded;
   } catch (error) {
     console.log('error: ',error)
