@@ -8,17 +8,14 @@ const strictAuthorize = async (req, res, next) => {
     const token = req.headers["authorization"];
     if (token) {
         const user = await verifyJWTToken(token);
-        if (user && user.firstName !== 'Anonymous') {
+        if (user) {
             // const actualUser = await prisma.user.findUnique({where:{id:user.id}})
             req.user = user
             // console.log(req.user)
         } else {
             return res.status(401).send({ "message": "Invalid token provided." })
         }
-    } else {
-
-        return res.status(401).send({ "message": "You do not have access to this page." })
-    }
+    } 
     next();
 }
 

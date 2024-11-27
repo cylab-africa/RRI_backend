@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const { calculateScores } = require("../utilities/score");
+const { createAnonimousAccount } = require("./authController");
 
 const prisma = new PrismaClient();
 
@@ -89,6 +90,19 @@ const createProject = async (req, res) => {
     const { projectName } = req.body;
     let user = req.user;
 
+    // Check if the user exists, otherwise create an anonymous account
+    if (!user) {
+      const userAccount = await createAnonimousAccount();
+      console.log("userAccount: ", userAccount);
+      user = userAccount.user; // Get the user object
+    }
+
+    console.log("user: ", user);
+
+    if (!user || !user.id) {
+      throw new Error("Failed to resolve a valid user for the project.");
+    }
+
     // Check if the project already exists for the user
     let project = await prisma.project.findFirst({
       where: { name: projectName, userId: user.id },
@@ -100,7 +114,7 @@ const createProject = async (req, res) => {
       project = await prisma.project.create({
         data: {
           name: projectName,
-          userId: user.id,
+          userId: user.id, // Associate directly via userId
         },
       });
     }
@@ -112,60 +126,32 @@ const createProject = async (req, res) => {
 
     if (!evaluation) {
       const principleScores = {
-        "Benefits to Society & Public Engagement": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Ethics & Governance": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Privacy & Security": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Fairness, Gender Equality & Inclusivity": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Responsiveness, Transparency & Accountability": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Human Agency & Oversight": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
-        "Open Access": {
-          totalScore: 0,
-          count: 0,
-          avg: 0,
-        },
+        "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
+        "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
+        "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
+        "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
+        "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
+        "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
+        "Open Access": { totalScore: 0, count: 0, avg: 0 },
       };
 
       evaluation = await prisma.evaluation.create({
         data: {
           projectId: project.id,
           score: [0, 0, 0, 0],
-          principleScores: principleScores, // No extra braces
-          questionScores: {}
+          principleScores: principleScores,
+          questionScores: {},
         },
       });
-      return res.status(200).send({ message: "Project created.", data: project });
     }
 
-    return res.status(200).send({ message: `Let's proceed with ${projectName}.`, data: project });
+    return res.status(200).send({message: `Let's proceed with ${projectName}.`, data: project });
   } catch (e) {
-    console.log('error project', e);
+    console.error("Error in createProject:", e);
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
+
 
 
 // Get all projects for the user
