@@ -15,7 +15,9 @@ const strictAuthorize = async (req, res, next) => {
         } else {
             return res.status(401).send({ "message": "Invalid token provided." })
         }
-    } 
+    }else{
+        return res.status(401).send({ "message": "Invalid token provided." })
+    }
     next();
 }
 
