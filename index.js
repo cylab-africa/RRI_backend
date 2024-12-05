@@ -3,7 +3,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 var app = express();
 const {testGetWay} = require('./src/controllers/testController')
-const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects, generateReport} = require('./src/controllers/evaluationControllers');
+const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects, generateReport, submitAuth} = require('./src/controllers/evaluationControllers');
 const {  strictAuthorize } = require('./src/middleware/authorization');
 const { createAccount, checkUser } = require('./src/controllers/authController');
 // require('./auth/auth')
@@ -31,12 +31,13 @@ app.get('/api/', testGetWay)
 app.get("/api/layer", getLayers)
 app.get('/api/questions', getQuestions)
 app.post('/api/answers', strictAuthorize, submitAnswers)
-app.post('/api/project', strictAuthorize, createProject)
+app.post('/api/project', createProject)
 app.get("/api/evaluation", strictAuthorize, getEvaluations)
 app.get("/api/projects", strictAuthorize, getProjects)
 app.get("/api/report/:pid", strictAuthorize, generateReport)
 app.post('/api/signup',createAccount)
 app.post('/api/check-user',checkUser)
+app.post('/api/submit-auth',strictAuthorize, submitAuth)
 
 var server = app.listen(PORT, function () {
    var host = server.address().address
