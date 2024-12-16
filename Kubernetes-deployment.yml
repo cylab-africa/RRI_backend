@@ -45,7 +45,8 @@ spec:
     spec:
       serviceAccountName: rri-backend-account  
       containers:  
-      - image: 0789421906/rri-backend:latest
+      #- image: 0789421906/rri-backend:latest
+      - image: ghcr.io/cylab-africa/rri-backend:latest
         name: rri-backend-container 
         ports:
         - containerPort: 8081 
