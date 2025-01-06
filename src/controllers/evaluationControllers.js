@@ -403,7 +403,6 @@ const submitAnswers = async (req, res) => {
             await prisma.answer.create({
               data: {
                 score: userAnswer.score,
-                questionId: userAnswer.questionId,
                 subQuestionId: subquestion.id,
                 evaluationId: evaluation.id,
               },
