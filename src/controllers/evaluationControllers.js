@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const { calculateScores } = require("../utilities/score");
 const { createAnonimousAccount } = require("./authController");
 const { verifyToken, authenticateCreateUser } = require("../utilities/authUtilities");
-const { generateJWTToken } = require("../utilities/tokenGeneretor");
+const { generateJWTToken, verifyJWTToken } = require("../utilities/tokenGeneretor");
 
 const prisma = new PrismaClient();
 
@@ -217,13 +217,16 @@ const getQuestions = async (req, res) => {
 const createProject = async (req, res) => {
   try {
     const { projectName } = req.body;
-    let user = req.user;
+    const token = req.headers["authorization"];
+    let user;
 
     // Check if the user exists, otherwise create an anonymous account
-    if (!user) {
+    if (!token) {
       const userAccount = await createAnonimousAccount();
       console.log("userAccount: ", userAccount);
       user = userAccount.user; // Get the user object
+    }else{
+      user = await verifyJWTToken(token);
     }
 
     if (!user || !user.id) {

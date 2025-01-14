@@ -11,12 +11,12 @@ async function checkUserInDatabase(email) {
 }
 const { OAuth2Client } = require('google-auth-library');
 const { generateJWTToken } = require('./tokenGeneretor');
-const client = new OAuth2Client('675234645346-4gm06orkd6a46m9vn1k0nm0lmr693pj3.apps.googleusercontent.com');
+const client = new OAuth2Client(process.env.client_id);
 
 async function verifyToken(token) {
     const ticket = await client.verifyIdToken({
         idToken: token,
-        audience: '675234645346-4gm06orkd6a46m9vn1k0nm0lmr693pj3.apps.googleusercontent.com', // Specify the CLIENT_ID of the app that accesses the backend
+        audience: process.env.client_id, // Specify the CLIENT_ID of the app that accesses the backend
     });
     const payload = ticket.getPayload();
     return payload; // This contains user info
