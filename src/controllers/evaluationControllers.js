@@ -11,15 +11,49 @@ const submitAuth = async (req, res) => {
 
   try {
     console.log('rebq body: ', req.body)
-    console.log('useer submit auth: ',req.user);
+    console.log('useer submit auth: ', req.user);
     // Check if the project already exists for the user
     let project = await prisma.project.findFirst({
-      where: { id: req.body.answers.projectId }
+      where: { name: req.body.projectName }
     });
-    console.log('found project: ', project)
+    let evaluation;
+    // if project doesn't exist we will create a new one
     if (!project) {
-      return res.status(404).send({ error: 'Project not found' });
+      project = await prisma.project.create({
+        data: {
+          name: req.body.projectName,
+          userId: req.user.id, // Associate directly via userId
+        },
+      });
+
+      // Check if an evaluation exists for the project and create one if needed
+      evaluation = await prisma.evaluation.findFirst({
+        where: { projectId: project.id, completedLayers: 0 },
+      });
+
+      // create evaluation
+      if (!evaluation) {
+        const principleScores = {
+          "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
+          "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
+          "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
+          "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
+          "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
+          "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
+          "Open Access": { totalScore: 0, count: 0, avg: 0 },
+        };
+
+        evaluation = await prisma.evaluation.create({
+          data: {
+            projectId: project.id,
+            score: [0, 0, 0, 0],
+            principleScores: principleScores,
+            questionScores: {},
+          },
+        });
+      }
     }
+
     // to update project
     await prisma.project.update({
       where: { id: project.id },
@@ -30,21 +64,25 @@ const submitAuth = async (req, res) => {
 
     // start evaluation
     // _______________
-    
 
-    const answers = req.body.answers.answers;
+
+    const answers = req.body.projectAnswers.answers;
     console.log('project: ', project)
     // Process each answer and store it in the database
-    const evaluation = await prisma.evaluation.findFirst({
-      where: { projectId: project.id, completedLayers: 0 },
+    // const evaluation = await prisma.evaluation.findFirst({
+    //   where: { projectId: project.id, completedLayers: 0 },
+    // });
+    // const evaluation1 = await prisma.evaluation.findFirst({
+    //   where: { projectId: project.id},
+    // });
+    // console.log('evaluation1:',evaluation1)
+    // if (!evaluation) {
+    //   return res.status(404).send({ message: "Project evaluation not found." });
+    // }
+    evaluation = await prisma.evaluation.findFirst({
+      where: { projectId: project.id },
     });
-    const evaluation1 = await prisma.evaluation.findFirst({
-      where: { projectId: project.id},
-    });
-    console.log('evaluation1:',evaluation1)
-    if (!evaluation) {
-      return res.status(404).send({ message: "Project evaluation not found." });
-    }
+    console.log('answers: ',answers)
     for (const userAnswer of answers) {
       const subquestion = await prisma.subQuestion.findFirst({
         where: { id: userAnswer.id },
@@ -96,37 +134,38 @@ const submitAuth = async (req, res) => {
 
     // Calculate scores based on the answers
     const projectscores = await calculateScores(evaluationAnswers);
-    
 
-      // Check if layerScoresArray and overallScore are valid
-      let layerScoresArray = Object.values(projectscores?.layerScores || {}).map(entry => entry.totalScore * 100);
-      if (layerScoresArray.some(isNaN)) {
-        console.warn("layerScoresArray contains NaN values:", layerScoresArray);
-      }
-  
-      layerScoresArray.push(projectscores.overallScore);
-      const principleScores = projectscores.principleScores;
-      const questionScores = projectscores.questionScores;
-      if (layerScoresArray.some(isNaN)) {
-        console.warn("layerScoresArray contains NaN values after adding overallScore:", layerScoresArray);
-      }
-  
-      // Mark the evaluation as complete and update the score
-      const updatedEvaluation = await prisma.evaluation.update({
-        where: { id: evaluation.id },
-        data: {
-          score: { set: layerScoresArray }, // Use `set` to replace the entire array
-          principleScores: principleScores,
-          questionScores: questionScores,
-          completedLayers: 1,
-        },
-      });
-  
-      return res.status(200).send({
-        message: "Submitted successfully",
-        evaluation: updatedEvaluation,
-      });
-  
+
+    // Check if layerScoresArray and overallScore are valid
+    let layerScoresArray = Object.values(projectscores?.layerScores || {}).map(entry => entry.totalScore * 100);
+    if (layerScoresArray.some(isNaN)) {
+      console.warn("layerScoresArray contains NaN values:", layerScoresArray);
+    }
+
+    layerScoresArray.push(projectscores.overallScore);
+    const principleScores = projectscores.principleScores;
+    const questionScores = projectscores.questionScores;
+    if (layerScoresArray.some(isNaN)) {
+      console.warn("layerScoresArray contains NaN values after adding overallScore:", layerScoresArray);
+    }
+
+    // Mark the evaluation as complete and update the score
+    const updatedEvaluation = await prisma.evaluation.update({
+      where: { id: evaluation.id },
+      data: {
+        score: { set: layerScoresArray }, // Use `set` to replace the entire array
+        principleScores: principleScores,
+        questionScores: questionScores,
+        completedLayers: 1,
+      },
+    });
+    console.log('updated evaluation: ', updatedEvaluation)
+
+    return res.status(200).send({
+      message: "Submitted successfully",
+      evaluation: updatedEvaluation,
+    });
+
   } catch (e) {
     console.log('error: ', e)
     return res.status(500).send({ error: e });
@@ -225,7 +264,7 @@ const createProject = async (req, res) => {
       const userAccount = await createAnonimousAccount();
       console.log("userAccount: ", userAccount);
       user = userAccount.user; // Get the user object
-    }else{
+    } else {
       user = await verifyJWTToken(token);
     }
 
@@ -317,7 +356,7 @@ const getProjects = async (req, res) => {
         layerScoresArray.push(projectscores?.overallScore ? projectscores.overallScore : 0);
 
         await prisma.evaluation.update({
-          where: { id: evaluation.id },
+          where: { id: evaluation?.id },
           data: {
             score: { set: layerScoresArray },
             principleScores: principleScores,
