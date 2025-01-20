@@ -6,6 +6,7 @@ const prisma = new PrismaClient()
 // You need to be logged in
 const strictAuthorize = async (req, res, next) => {
     const token = req.headers["authorization"];
+    console.log('authorization: ',token)
     if (token) {
         const user = await verifyJWTToken(token);
         if (user) {

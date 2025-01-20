@@ -207,14 +207,33 @@ const generateReport = async (req, res) => {
 
     // Fetch the project evaluation by its ID, including answers to questions
     project = await prisma.evaluation.findFirst({
-      where: { id: parseInt(pid) },
+      where: { id: parseInt(pid),
+        project: {
+          userId: user.id, // Ensure the user is the owner of the project or has the right role
+        },
+       },
       include: {
         answers: { include: { subQuestion: true } }
       },
     });
-    console.log('project.principleScores ', project.principleScores);
+
+    if(!project){
+      return res.status(404).send({ 
+        message: "Project not found"
+      });
+    }
+    console.log('project: ', project);
+
+    // 1. define returned values
+    // 2. checking user if he/she is allowed to request this evaluation
     // Return project data including answers and questions
-    return res.status(200).send({ project: project });
+    return res.status(200).send({ project: {
+      description:project.description,
+      score:project.score,
+      principleScores:project.principleScores,
+      questionScores:project.questionScores,
+      answers:project.answers
+    } });
   } catch (e) {
     console.log('report error: ', e)
     return res.status(500).send({ error: e });
