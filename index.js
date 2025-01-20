@@ -12,6 +12,7 @@ const ORIGIN = process.env.WEBSITE
 const ENV = process.env.ENV
 // Configurations
 
+app.disable('x-powered-by');
 // Migrate the database
 
 if (ENV==='TEST'){
