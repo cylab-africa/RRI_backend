@@ -48,8 +48,11 @@ async function authenticateCreateUser(token){
   
       // If user exists, return their information and googleCredential
       if (userExists) {
-        const accessToken = generateJWTToken(userExists)
-        console.log(userExists)
+        const accessToken = generateJWTToken({
+          email:userExists.email,
+          firstName:userExists.firstName,
+          lastName:userExists.lastName,
+        })
         return {
           accessToken: accessToken,
           user: userExists,
