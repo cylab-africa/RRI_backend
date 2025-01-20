@@ -36,7 +36,11 @@ const createAccount = async (req, res) => {
         googleCredential: googleCredential || null              // Nullable
       },
     });
-    const accessToken = generateJWTToken(createdUser)
+    const accessToken = generateJWTToken({
+      email:email,
+      firstName:firstName,
+      lastName:lastName
+    })
 
     // const accessToken = jwt.sign(userExists, process.env.TOKEN_SECRET, { expiresIn: '1h'});
     // Send success response
@@ -79,7 +83,12 @@ const checkUser = async (req, res) => {
 
     // If user exists, return their information and googleCredential
     if (userExists) {
-      const accessToken = generateJWTToken(userExists)
+      console.log('userExists: ',userExists)
+      const accessToken = generateJWTToken({
+        email:userExists.email,
+        firstName:userExists.firstName,
+        lastName:userExists.lastName
+      })
       console.log(userExists)
       return res.json({
         accessToken: accessToken,
