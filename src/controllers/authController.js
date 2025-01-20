@@ -37,6 +37,7 @@ const createAccount = async (req, res) => {
       },
     });
     const accessToken = generateJWTToken({
+      id: createdUser.id,
       email:email,
       firstName:firstName,
       lastName:lastName
@@ -85,6 +86,7 @@ const checkUser = async (req, res) => {
     if (userExists) {
       console.log('userExists: ',userExists)
       const accessToken = generateJWTToken({
+        id:userExists.id,
         email:userExists.email,
         firstName:userExists.firstName,
         lastName:userExists.lastName
