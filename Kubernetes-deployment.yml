@@ -44,8 +44,10 @@ spec:
         app: rri-backend 
     spec:
       serviceAccountName: rri-backend-account  
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:  
-      - image: 0789421906/rri-backend:latest
+      - image: ghcr.io/cylab-africa/rri-backend:latest
         name: rri-backend-container 
         ports:
         - containerPort: 8081 
