@@ -214,8 +214,10 @@ const calculateOverallScore = async (layerScores) => {
 const calculateScores = async (subquestionScores) => {
 
   if (subquestionScores != null) {
+    console.log('subquestionScores: ',subquestionScores)
     // Step 1: Calculate average scores per question
     const questionScores = await calculateAverageScorePerQuestion(subquestionScores);
+    console.log('questionscores: ',questionScores)
     if (Object.keys(questionScores).length > 0) {
       
       // Step 2: Calculate average scores per principle
