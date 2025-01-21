@@ -17,12 +17,14 @@ const submitAuth = async (req, res) => {
       where: { name: req.body.projectName }
     });
     let evaluation;
+    console.log('answer 1: ',req.body.projectAnswers.answers[0].score)
     // if project doesn't exist we will create a new one
     if (!project) {
       project = await prisma.project.create({
         data: {
           name: req.body.projectName,
           userId: req.user.id, // Associate directly via userId
+          description:  req.body.projectAnswers.answers[0].score
         },
       });
 
@@ -59,6 +61,7 @@ const submitAuth = async (req, res) => {
       where: { id: project.id },
       data: {
         userId: req.user.id, // Update the foreign key
+        description: req.body.projectAnswers.answers[0].score
       },
     });
 
@@ -131,6 +134,7 @@ const submitAuth = async (req, res) => {
       where: { evaluationId: evaluation.id },
       include: { subQuestion: true },
     });
+    console.log('evaluationAnswers: ',evaluationAnswers)
 
     // Calculate scores based on the answers
     const projectscores = await calculateScores(evaluationAnswers);
