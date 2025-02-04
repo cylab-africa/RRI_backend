@@ -236,7 +236,9 @@ const generateReport = async (req, res) => {
       score:project.score,
       principleScores:project.principleScores,
       questionScores:project.questionScores,
-      answers:project.answers
+      answers:project.answers,
+      firstName:user.firstName,
+      lastName:user.lastName
     } });
   } catch (e) {
     console.log('report error: ', e)
