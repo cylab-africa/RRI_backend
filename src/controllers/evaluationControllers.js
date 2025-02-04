@@ -10,9 +10,6 @@ const prisma = new PrismaClient();
 const submitAuth = async (req, res) => {
 
   try {
-    console.log('rebq body: ', req.body)
-    console.log('useer submit auth: ', req.user);
-    // Check if the project already exists for the user
     let project = await prisma.project.findFirst({
       where: { name: req.body.projectName }
     });
@@ -24,68 +21,29 @@ const submitAuth = async (req, res) => {
         data: {
           name: req.body.projectName,
           userId: req.user.id, // Associate directly via userId
-          description:  req.body.projectAnswers.answers[0].score
         },
       });
-
-      // Check if an evaluation exists for the project and create one if needed
-      evaluation = await prisma.evaluation.findFirst({
-        where: { projectId: project.id, completedLayers: 0 },
-      });
-
-      // create evaluation
-      if (!evaluation) {
-        const principleScores = {
-          "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
-          "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
-          "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
-          "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
-          "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
-          "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
-          "Open Access": { totalScore: 0, count: 0, avg: 0 },
-        };
-
+    }
         evaluation = await prisma.evaluation.create({
           data: {
             projectId: project.id,
             score: [0, 0, 0, 0],
-            principleScores: principleScores,
+            principleScores: {
+              "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
+              "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
+              "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
+              "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
+              "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
+              "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
+              "Open Access": { totalScore: 0, count: 0, avg: 0 },
+            },
             questionScores: {},
+            description:req.body.projectAnswers.answers[0].score
           },
         });
-      }
-    }
-
-    // to update project
-    await prisma.project.update({
-      where: { id: project.id },
-      data: {
-        userId: req.user.id, // Update the foreign key
-        description: req.body.projectAnswers.answers[0].score
-      },
-    });
-
-    // start evaluation
-    // _______________
-
 
     const answers = req.body.projectAnswers.answers;
-    console.log('project: ', project)
-    // Process each answer and store it in the database
-    // const evaluation = await prisma.evaluation.findFirst({
-    //   where: { projectId: project.id, completedLayers: 0 },
-    // });
-    // const evaluation1 = await prisma.evaluation.findFirst({
-    //   where: { projectId: project.id},
-    // });
-    // console.log('evaluation1:',evaluation1)
-    // if (!evaluation) {
-    //   return res.status(404).send({ message: "Project evaluation not found." });
-    // }
-    evaluation = await prisma.evaluation.findFirst({
-      where: { projectId: project.id },
-    });
-    console.log('answers: ',answers)
+    
     for (const userAnswer of answers) {
       const subquestion = await prisma.subQuestion.findFirst({
         where: { id: userAnswer.id },
@@ -134,8 +92,7 @@ const submitAuth = async (req, res) => {
       where: { evaluationId: evaluation.id },
       include: { subQuestion: true },
     });
-    console.log('evaluationAnswers: ',evaluationAnswers)
-
+   
     // Calculate scores based on the answers
     const projectscores = await calculateScores(evaluationAnswers);
 
@@ -157,13 +114,13 @@ const submitAuth = async (req, res) => {
     const updatedEvaluation = await prisma.evaluation.update({
       where: { id: evaluation.id },
       data: {
-        score: { set: layerScoresArray }, // Use `set` to replace the entire array
+        projectId: project.id,
+        score: layerScoresArray,
         principleScores: principleScores,
         questionScores: questionScores,
-        completedLayers: 1,
+        completedLayers: 1
       },
     });
-    console.log('updated evaluation: ', updatedEvaluation)
 
     return res.status(200).send({
       message: "Submitted successfully",
@@ -226,7 +183,7 @@ const generateReport = async (req, res) => {
         message: "Project not found"
       });
     }
-    console.log('project: ', project);
+    console.log('project1: ', project.description);
 
     // 1. define returned values
     // 2. checking user if he/she is allowed to request this evaluation
