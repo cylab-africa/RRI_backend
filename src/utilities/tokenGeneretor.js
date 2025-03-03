@@ -6,9 +6,7 @@ const generateJWTToken = (payload) => {
   const SECRET_KEY = tokenKey || "PRIVATEKEY";
   const SALT = salt || "SALT";
 
-  const token = jwt.sign(payload, SECRET_KEY + SALT, {
-    expiresIn: "7d",
-  });
+  const token = jwt.sign(payload, SECRET_KEY + SALT);
   return token;
 };
 

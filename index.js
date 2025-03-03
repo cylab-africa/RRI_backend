@@ -3,8 +3,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 var app = express();
 const {testGetWay} = require('./src/controllers/testController')
-const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects, generateReport, submitAuth} = require('./src/controllers/evaluationControllers');
-const {  strictAuthorize } = require('./src/middleware/authorization');
+const {getLayers, getQuestions, submitAnswers, createProject, getEvaluations, getProjects, generateReport, submitAuth, getProject} = require('./src/controllers/evaluationControllers');
+const {  strictAuthorize, authenticate, authorize } = require('./src/middleware/authorization');
 const { createAccount, checkUser } = require('./src/controllers/authController');
 // require('./auth/auth')
 const PORT = process.env.PORT
@@ -33,10 +33,13 @@ app.get("/api/layer", getLayers)
 app.get('/api/questions', getQuestions)
 app.get("/api/evaluation", strictAuthorize, getEvaluations)
 app.get("/api/projects", strictAuthorize, getProjects)
+
+// for anyone
+app.get("/api/projects/:pid", getProject)
 app.get("/api/report/:pid", strictAuthorize, generateReport)
 app.post('/api/signup',createAccount)
 app.post('/api/check-user',checkUser)
-app.post('/api/submit-auth',strictAuthorize, submitAuth)
+app.post('/api/submit-auth',authorize, submitAuth)
 
 var server = app.listen(PORT, function () {
    var host = server.address().address

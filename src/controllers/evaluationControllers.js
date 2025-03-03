@@ -8,13 +8,18 @@ const prisma = new PrismaClient();
 
 
 const submitAuth = async (req, res) => {
-
+  console.log('submit authentication')
+  if (!req.user) {
+    const createdUser = await createAnonimousAccount()
+    console.log('anonimous user: ', createdUser)
+    req.user = createdUser.user;
+  }
   try {
     let project = await prisma.project.findFirst({
       where: { name: req.body.projectName }
     });
     let evaluation;
-    console.log('answer 1: ',req.body.projectAnswers.answers[0].score)
+    console.log('user 1: ', req.user)
     // if project doesn't exist we will create a new one
     if (!project) {
       project = await prisma.project.create({
@@ -24,26 +29,30 @@ const submitAuth = async (req, res) => {
         },
       });
     }
-        evaluation = await prisma.evaluation.create({
-          data: {
-            projectId: project.id,
-            score: [0, 0, 0, 0],
-            principleScores: {
-              "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
-              "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
-              "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
-              "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
-              "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
-              "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
-              "Open Access": { totalScore: 0, count: 0, avg: 0 },
-            },
-            questionScores: {},
-            description:req.body.projectAnswers.answers[0].score
-          },
-        });
+    project = await prisma.project.update({
+      where: { id: project.id },
+      data: { owner:{connect:{id:req.user.id}}  },
+    });
+    evaluation = await prisma.evaluation.create({
+      data: {
+        projectId: project.id,
+        score: [0, 0, 0, 0],
+        principleScores: {
+          "Benefits to Society & Public Engagement": { totalScore: 0, count: 0, avg: 0 },
+          "Ethics & Governance": { totalScore: 0, count: 0, avg: 0 },
+          "Privacy & Security": { totalScore: 0, count: 0, avg: 0 },
+          "Fairness, Gender Equality & Inclusivity": { totalScore: 0, count: 0, avg: 0 },
+          "Responsiveness, Transparency & Accountability": { totalScore: 0, count: 0, avg: 0 },
+          "Human Agency & Oversight": { totalScore: 0, count: 0, avg: 0 },
+          "Open Access": { totalScore: 0, count: 0, avg: 0 },
+        },
+        questionScores: {},
+        description: req.body.projectAnswers.answers[0].score
+      },
+    });
 
     const answers = req.body.projectAnswers.answers;
-    
+
     for (const userAnswer of answers) {
       const subquestion = await prisma.subQuestion.findFirst({
         where: { id: userAnswer.id },
@@ -92,7 +101,7 @@ const submitAuth = async (req, res) => {
       where: { evaluationId: evaluation.id },
       include: { subQuestion: true },
     });
-   
+
     // Calculate scores based on the answers
     const projectscores = await calculateScores(evaluationAnswers);
 
@@ -125,6 +134,7 @@ const submitAuth = async (req, res) => {
     return res.status(200).send({
       message: "Submitted successfully",
       evaluation: updatedEvaluation,
+      user: req.user
     });
 
   } catch (e) {
@@ -168,18 +178,19 @@ const generateReport = async (req, res) => {
 
     // Fetch the project evaluation by its ID, including answers to questions
     project = await prisma.evaluation.findFirst({
-      where: { id: parseInt(pid),
+      where: {
+        id: parseInt(pid),
         project: {
           userId: user.id, // Ensure the user is the owner of the project or has the right role
         },
-       },
+      },
       include: {
         answers: { include: { subQuestion: true } }
       },
     });
 
-    if(!project){
-      return res.status(404).send({ 
+    if (!project) {
+      return res.status(404).send({
         message: "Project not found"
       });
     }
@@ -188,15 +199,17 @@ const generateReport = async (req, res) => {
     // 1. define returned values
     // 2. checking user if he/she is allowed to request this evaluation
     // Return project data including answers and questions
-    return res.status(200).send({ project: {
-      description:project.description,
-      score:project.score,
-      principleScores:project.principleScores,
-      questionScores:project.questionScores,
-      answers:project.answers,
-      firstName:user.firstName,
-      lastName:user.lastName
-    } });
+    return res.status(200).send({
+      project: {
+        description: project.description,
+        score: project.score,
+        principleScores: project.principleScores,
+        questionScores: project.questionScores,
+        answers: project.answers,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
+    });
   } catch (e) {
     console.log('report error: ', e)
     return res.status(500).send({ error: e });
@@ -265,7 +278,7 @@ const createProject = async (req, res) => {
       project = await prisma.project.create({
         data: {
           name: projectName,
-          userId: user.id, // Associate directly via userId
+          userId: user?.id, // Associate directly via userId
         },
       });
     }
@@ -368,6 +381,50 @@ const getProjects = async (req, res) => {
     return res.status(200).send({ data: sortedProjects });
   } catch (e) {
     console.log('error in fetching projects: ', e)
+    return res.status(500).send({ message: "Something went wrong." });
+  }
+};
+
+// get a scpecific project
+const getProject = async (req, res) => {
+  try {
+    let { pid } = req.params;
+
+    let project;
+
+    // Fetch the project evaluation by its ID, including answers to questions
+    project = await prisma.project.findFirst({
+      where: {
+        id: parseInt(pid),
+      },
+    });
+    if (!project) {
+      return res.status(404).send({
+        message: "Project not found"
+      });
+    }
+    let evaluation = await prisma.evaluation.findFirst({
+      where: {
+        id: parseInt(pid),
+      },
+    });
+
+    return res.status(200).send({
+      project: {
+        name: project.name,
+        evaluations: [{
+          id: evaluation.id,
+          projectId: evaluation.projectId,
+          description: evaluation.description,
+          score: evaluation.score,
+          startTime: evaluation.startTime,
+          lastUpdateTime: evaluation.lastUpdateTime,
+          completedLayers: evaluation.completedLayers
+        }]
+      }
+    });
+  } catch (e) {
+    console.log('error in fetching a project: ', e)
     return res.status(500).send({ message: "Something went wrong." });
   }
 };
@@ -519,5 +576,6 @@ module.exports = {
   getProjects,
   submitAnswers,
   getEvaluations,
-  submitAuth
+  submitAuth,
+  getProject
 };

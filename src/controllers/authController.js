@@ -84,14 +84,12 @@ const checkUser = async (req, res) => {
 
     // If user exists, return their information and googleCredential
     if (userExists) {
-      console.log('userExists: ',userExists)
       const accessToken = generateJWTToken({
         id:userExists.id,
         email:userExists.email,
         firstName:userExists.firstName,
         lastName:userExists.lastName
-      })
-      console.log(userExists)
+      });
       return res.json({
         accessToken: accessToken,
         user: userExists,
