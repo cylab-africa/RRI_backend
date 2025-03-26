@@ -66,27 +66,35 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: rri-backend-ingress
+  name: rri-ingress
   namespace: rri
   labels:
-    app: rri-backend 
+    app: rri-app
 spec:
   ingressClassName: nginx
-  tls: 
-    - hosts:
-        - rri-backend.mosipcmuafrica.me
-      secretName: mosip-tls-cert
   rules:
-  - host: rri-backend.mosipcmuafrica.me
+  - host: rri.upanzi.net
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
+            name: rri-frontend-service-prod
+            port:
+              number: 3000
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
             name: rri-backend-service-prod
             port:
               number: 8081
+  tls:
+  - hosts:
+    - rri.upanzi.net
+    secretName: upanzi-tls-cert
+
 ---
 kind: Secret
 apiVersion: v1
@@ -97,7 +105,8 @@ metadata:
     app: rri-backend 
 stringData:
   PORT: "3000"
-  DATABASE_URL: "postgresql://local:tyyt@localhost:333/name"
+  DATABASE_URL: "postgresql://postgres:T74Iv4HorS@postgres-postgresql.rri.svc.cluster.local:5432/rridb"
   TOKEN_SECRET: "values"
   JWT_SALT: "salt"
+  WEBSITE: "http://rri.upanzi.net"
 type: Opaque
