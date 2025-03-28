@@ -405,7 +405,7 @@ const getProject = async (req, res) => {
     }
     let evaluation = await prisma.evaluation.findFirst({
       where: {
-        id: parseInt(pid),
+        projectId: parseInt(pid),
       },
     });
 
