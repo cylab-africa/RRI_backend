@@ -1,4 +1,4 @@
-# RRI
+# RRI version 1
 
 A quick project setup documentation for the dev environment.
 
