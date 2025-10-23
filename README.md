@@ -92,3 +92,4 @@ You can now run the backend and frontend apps
 ```>cd RRI_frontend```
 
 ```>npm start```
+# Final 
