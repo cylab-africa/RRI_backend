@@ -1,257 +1,192 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const prisma = require("../db/prismaClient");
 
 /**
- * Fetch the weight of a principle from the database.
- * @param {number} principleId - The ID of the principle.
- * @returns {Promise<number>} - The weight of the principle.
+ * PERFORMANCE FIX: The original score.js made individual DB queries inside every loop
+ * iteration (N+1 query problem). For example, calculateAverageScorePerPrinciple queried
+ * prisma.question.findFirst for EACH question text, and calculateLayerScores queried
+ * prisma.principle.findFirst + getPrincipleWeightFromDB for EACH principle.
+ *
+ * This refactor batch-loads all reference data (questions, principles, layers) in a
+ * single call at the top of calculateScores, then passes it through.
  */
-const getPrincipleWeightFromDB = async (principleName) => {
-  const principle = await prisma.principle.findFirst({
-    where: { name: principleName },
-    select: { weight: true }, // Fetch the weight of the principle
-  });
-  return principle ? principle.weight : 0;
+
+/**
+ * Load all reference data in one shot — questions with their principles, principles
+ * with their layers. Called once per score calculation, not once per loop iteration.
+ */
+const loadReferenceData = async () => {
+  const [questions, principles] = await Promise.all([
+    prisma.question.findMany({
+      include: {
+        subQuestions: true,
+        principle: { include: { layer: true } },
+      },
+    }),
+    prisma.principle.findMany({
+      include: { layer: true },
+    }),
+  ]);
+
+  // Build lookup maps for O(1) access
+  const questionById = new Map(questions.map((q) => [q.id, q]));
+  const principleByName = new Map(principles.map((p) => [p.name, p]));
+
+  return { questions, questionById, principleByName };
 };
 
 /**
- * Fetch the weight of a layer from the database.
- * @param {number} layerId - The ID of the layer.
- * @returns {Promise<number>} - The weight of the layer.
+ * Step 1: Calculate average score per question.
+ * Groups subquestion answer scores by their parent question.
  */
-const getLayerWeightFromDB = async (layerId) => {
-  const layer = await prisma.layer.findUnique({
-    where: { id: layerId },
-    select: { weight: true }, // Fetch the weight of the layer
-  });
-  return layer ? layer.weight : 0;
-};
-
-/**
- * Calculate the average score for each principle based on subquestion scores.
- * 1. Iterate through each subquestion and find its corresponding principle.
- * 2. Accumulate the scores for each subquestions for specific questions in principle.
- * 3. Calculate the average score for each principle.
- * @param {Array} subquestionScores - Array of objects containing scores for subquestions.
- * @returns {Promise<Object>} - Object with average scores for each principle.
- */
-
-const calculateAverageScorePerQuestion = async (subquestionScores) => {
-
-  // Fetch all questions with their associated principles and subquestions
-  const questions = await prisma.question.findMany({
-    include: {
-      subQuestions: true, // Include the subquestions linked to each question
-    },
-  });
-
-  // Object to store the accumulated scores and counts for each principle
+const calculateAverageScorePerQuestion = (subquestionScores, { questionById }) => {
   const questionScores = {};
-  // Iterate over all subquestion scores to accumulate them under the corresponding principle
 
-  for (let scoreEntry of subquestionScores) {
-    const q_id = scoreEntry.subQuestion.questionId; // Get the question ID for the subquestion
+  for (const scoreEntry of subquestionScores) {
+    const qId = scoreEntry.subQuestion.questionId;
+    const question = questionById.get(qId);
 
-    const question = questions.find((q) => q.id === q_id); // Find the corresponding question
+    if (!question) continue;
 
-    // Initialize tracking for the principle if not already done
     if (!questionScores[question.text]) {
       questionScores[question.text] = { totalScore: 0, count: 0 };
     }
 
-    // Add the subquestion score to the principle's accumulated total
-    if (typeof scoreEntry.score === 'number') {
-      questionScores[question.text].totalScore += scoreEntry.score; // Accumulate score
-      questionScores[question.text].count += 1; // Increment the count for calculating the average
+    if (typeof scoreEntry.score === "number") {
+      questionScores[question.text].totalScore += scoreEntry.score;
+      questionScores[question.text].count += 1;
     }
   }
 
-  // Calculate the average score for each principle and apply the principle's weight
-  const questionAverageScores = {};
-
-  for (const questionelt in questionScores) {
-    questionScores[questionelt].avg = questionScores[questionelt].totalScore / questionScores[questionelt].count;
-
+  // Compute averages
+  for (const key in questionScores) {
+    const entry = questionScores[key];
+    entry.avg = entry.count > 0 ? entry.totalScore / entry.count : 0;
   }
+
   return questionScores;
 };
 
+/**
+ * Step 2: Calculate average score per principle.
+ * Groups question averages by their parent principle.
+ *
+ * PERF FIX: Previously did prisma.question.findFirst({ where: { text } })
+ * inside the loop — now uses the pre-loaded questions array.
+ */
+const calculateAverageScorePerPrinciple = (questionScores, { questions }) => {
+  // Build a text→question lookup from the pre-loaded data
+  const questionByText = new Map(questions.map((q) => [q.text, q]));
 
-const calculateAverageScorePerPrinciple = async (questionScores) => {
-  // Fetch all questions with their associated principles and subquestions
-  const principles = await prisma.principle.findMany({
-    include: {
-      questions: true, // Include the subquestions linked to each question
-    },
-  });
-
-  // Object to store the accumulated scores and counts for each principle
   const principleScores = {};
 
-  // Iterate over all subquestion scores to accumulate them under the corresponding principle
-  for (let [questionText, scoreEntry] of Object.entries(questionScores)) {
+  for (const [questionText, scoreEntry] of Object.entries(questionScores)) {
+    const question = questionByText.get(questionText);
+    if (!question || !question.principle) continue;
 
-    // to search question by test
-    const question = await prisma.question.findFirst({
-      where: {
-        text: questionText, // Find the question by its text
-      },
-      include: {
-        principle: true, // Include the principle if needed
-        subQuestions: true, // Include related subquestions if needed
-      },
-    });
-    const principle = question.principle.name; // Get the name of the principle linked to the question
+    const principleName = question.principle.name;
 
-    // Initialize tracking for the principle if not already done
-    if (!principleScores[principle]) {
-      principleScores[principle] = { totalScore: 0, count: 0 };
+    if (!principleScores[principleName]) {
+      principleScores[principleName] = { totalScore: 0, count: 0 };
     }
 
-    // Add the subquestion score to the principle's accumulated total
-    if (typeof scoreEntry.avg === 'number') {
-      principleScores[principle].totalScore += scoreEntry.avg; // Accumulate score
-      principleScores[principle].count += 1; // Increment the count for calculating the average
+    if (typeof scoreEntry.avg === "number") {
+      principleScores[principleName].totalScore += scoreEntry.avg;
+      principleScores[principleName].count += 1;
     }
   }
 
-  for (const principle in principleScores) {
-    principleScores[principle].avg = principleScores[principle].totalScore / principleScores[principle].count;
-    // Fetch the weight of the principle from the database
-    // const principleWeight = await getPrincipleWeightFromDB(principle);
-    // Apply the principle's weight to the average score
-    // principleAverageScores[principle] = avgPrincipleScore * principleWeight; // Weighted score for each principle
+  for (const key in principleScores) {
+    const entry = principleScores[key];
+    entry.avg = entry.count > 0 ? entry.totalScore / entry.count : 0;
   }
+
   return principleScores;
 };
 
 /**
- * Calculate the score for each layer by summing up the weighted principle scores.
- * 1. Sum the weighted scores of all principles within a layer.
- * 2. Apply the layer's weight to calculate the final score for that layer.
- * @param {Object} principleScores - Object containing the weighted scores for each principle.
- * @returns {Promise<Object>} - Object containing the score for each layer.
+ * Step 3: Calculate layer scores from weighted principle scores.
+ *
+ * PERF FIX: Previously did two DB queries per principle (findFirst + getPrincipleWeightFromDB).
+ * Now uses the pre-loaded principleByName map.
  */
-const calculateLayerScores = async (principleScores) => {
+const calculateLayerScores = (principleScores, { principleByName }) => {
+  const layerScore = {};
 
-  let layerScore = {}
+  for (const [principleName, scoreEntry] of Object.entries(principleScores)) {
+    const principle = principleByName.get(principleName);
+    if (!principle || !principle.layer) continue;
 
-  for (let [principletext, scoreEntry] of Object.entries(principleScores)) {
-    const principle = await prisma.principle.findFirst({
-      where: {
-        name: principletext, // Find the question by its text
-      },
-      include: {
-        layer: true, // Include the principle if needed
-      },
-    });
+    const layerOrder = principle.layer.order;
 
-
-    if (!layerScore[principle.layer.order]) {
-      layerScore[principle.layer.order] = { totalScore: 0 };
+    if (!layerScore[layerOrder]) {
+      layerScore[layerOrder] = { totalScore: 0 };
     }
 
-
-    if (typeof scoreEntry.avg === 'number') {
-
-      // 1. weight of principle
-      const pWeight = await getPrincipleWeightFromDB(principle.name);
-
-      // 2. weight*scoreEntry.avg
-
-      // 3. calculate sum
-      layerScore[principle.layer.order].totalScore = layerScore[principle.layer.order].totalScore + (scoreEntry.avg * pWeight);
-
-
-      // N.B. all of this for perfect score should be equal to one
-
+    if (typeof scoreEntry.avg === "number") {
+      layerScore[layerOrder].totalScore += scoreEntry.avg * principle.weight;
     }
-
   }
-  // Iterate through each layer to calculate its score based on principles
-  for (let key in layerScore) {
-    if (layerScore[key].totalScore !== undefined) { // Check if totalScore exists
-      layerScore[key].totalScore /= 10; // Divide totalScore by the divisor
-    }
+
+  // Normalize: divide by 10 (max scale score)
+  for (const key in layerScore) {
+    layerScore[key].totalScore /= 10;
   }
 
   return layerScore;
 };
 
 /**
- * Calculate the overall score by summing up the scores of all layers.
- * 1. Sum the scores of each layer.
- * 2. Return the final overall score as a percentage.
- * @param {Object} layerScores - Object containing the scores for each layer.
- * @returns {Promise<number>} - The final overall score as a percentage.
+ * Step 4: Calculate overall weighted score across all layers.
  */
-const calculateOverallScore = async (layerScores) => {
-
-  // Define the weights for each layer
+const calculateOverallScore = (layerScores) => {
+  // Layer weights — these match what's seeded in addQuestions.js
   const weights = {
-    '1': 0.346,
-    '2': 0.331,
-    '3': 0.323
+    1: 0.346,
+    2: 0.331,
+    3: 0.323,
   };
 
-  // Calculate the weighted sum
-  const weightedSum = (layerScores['1']?.totalScore * weights['1']) +
-    (layerScores['2']?.totalScore * weights['2']) +
-    (layerScores['3']?.totalScore * weights['3']);
+  let weightedSum = 0;
+  for (const [layerOrder, weight] of Object.entries(weights)) {
+    const layerTotal = layerScores[layerOrder]?.totalScore || 0;
+    weightedSum += layerTotal * weight;
+  }
 
-  // Return the overall score as a percentage
-  return weightedSum * 100; // Assuming the final score is represented as a percentage
+  return weightedSum * 100;
 };
 
 /**
- * Main function to calculate the total scores for an evaluation.
- * 1. Calculate the average scores for each principle.
- * 2. Calculate the scores for each layer based on the principle scores.
- * 3. Calculate the final overall score.
- * @param {Array} subquestionScores - Array of objects containing the scores for subquestions.
- * @returns {Promise<Object>} - Object containing the principle scores, layer scores, and the overall score.
+ * Main entry point: calculate all scores for an evaluation's answers.
+ *
+ * PERF FIX: One DB round-trip (loadReferenceData) instead of ~30+ individual queries.
  */
 const calculateScores = async (subquestionScores) => {
-
-  if (subquestionScores != null) {
-    // Step 1: Calculate average scores per question
-    const questionScores = await calculateAverageScorePerQuestion(subquestionScores);
-    
-    if (Object.keys(questionScores).length > 0) {
-      
-      // Step 2: Calculate average scores per principle
-      const principleScores = await calculateAverageScorePerPrinciple(questionScores);
-
-      const layerScores = await calculateLayerScores(principleScores);
-
-      if (Object.keys(layerScores).length > 0) {
-        const overallScore = await calculateOverallScore(layerScores);
-        if(!overallScore){
-          console.log('we don\'t have overall score')
-        }
-        return { questionScores, principleScores, layerScores, overallScore };
-      }
-      console.log('we don\'t have layers score')
-      return null;
-
-    } else {
-      console.log('we don\'t have question score')
-      return null;
-    }
-
-  } else {
-    return null
+  if (!subquestionScores || subquestionScores.length === 0) {
+    return null;
   }
-  // Step 1: Calculate average scores per principle
-  // const principleScores = await calculateAverageScorePerPrinciple(subquestionScores);
 
-  // Step 2: Calculate the scores for each layer based on the principle scores
-  // const layerScores = await calculateLayerScores(principleScores);
+  // Single DB call to load all reference data
+  const refData = await loadReferenceData();
 
-  // Step 3: Calculate the overall score by summing layer scores
-  // const overallScore = await calculateOverallScore(layerScores);
+  // Step 1
+  const questionScores = calculateAverageScorePerQuestion(subquestionScores, refData);
+  if (Object.keys(questionScores).length === 0) {
+    return null;
+  }
 
-  // Return the result containing principle scores, layer scores, and overall score
+  // Step 2
+  const principleScores = calculateAverageScorePerPrinciple(questionScores, refData);
+
+  // Step 3
+  const layerScores = calculateLayerScores(principleScores, refData);
+  if (Object.keys(layerScores).length === 0) {
+    return null;
+  }
+
+  // Step 4
+  const overallScore = calculateOverallScore(layerScores);
+
+  return { questionScores, principleScores, layerScores, overallScore };
 };
 
 module.exports = {

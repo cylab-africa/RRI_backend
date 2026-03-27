@@ -1,15 +1,11 @@
-const { PrismaClient, QuestionType } = require("@prisma/client");
-
-const prisma = new PrismaClient();
+const prisma = require("../db/prismaClient");
 
 // Function to add layers and principles to the database
 const addLayersAndPrinciples = async () => {
-  // Add Layer 1
   const layer1 = await prisma.layer.create({
-    data: { name: "LAYER 1", order: 1, weight: 0.346 },  
+    data: { name: "LAYER 1", order: 1, weight: 0.346 },
   });
 
-  // Add principles to Layer 1
   await prisma.principle.createMany({
     data: [
       { name: "Benefits to Society & Public Engagement", weight: 0.319, layerId: layer1.id },
@@ -18,12 +14,10 @@ const addLayersAndPrinciples = async () => {
     ],
   });
 
-  // Add Layer 2
   const layer2 = await prisma.layer.create({
-    data: { name: "LAYER 2", order: 2, weight: 0.331 },  
+    data: { name: "LAYER 2", order: 2, weight: 0.331 },
   });
 
-  // Add principles to Layer 2
   await prisma.principle.createMany({
     data: [
       { name: "Fairness, Gender Equality & Inclusivity", weight: 0.488, layerId: layer2.id },
@@ -31,27 +25,23 @@ const addLayersAndPrinciples = async () => {
     ],
   });
 
-  // Add Layer 3
   const layer3 = await prisma.layer.create({
-    data: { name: "LAYER 3", order: 3, weight: 0.323 },  
+    data: { name: "LAYER 3", order: 3, weight: 0.323 },
   });
 
-  // Add principles to Layer 3
   await prisma.principle.createMany({
     data: [
       { name: "Human Agency & Oversight", weight: 0.7, layerId: layer3.id },
-      { name: "Open Access", weight: 0.3, layerId: layer3.id },  // New principle added to Layer 3
+      { name: "Open Access", weight: 0.3, layerId: layer3.id },
     ],
   });
 };
 
 // Function to create questions and subquestions in the database
 const createQuestions = async () => {
-  // Fetch all principles from the database
   const principles = await prisma.principle.findMany({});
-  
-  // Define the questions along with their subquestions
-  let questions = [
+
+  const questions = [
     {
       number: 1,
       principleName: "Benefits to Society & Public Engagement",
@@ -91,10 +81,10 @@ const createQuestions = async () => {
       principleName: "Privacy & Security",
       questionText: "How do you protect the privacy and security of individuals' data collected by your innovation, including obtaining consent and preventing unauthorized access?",
       subquestions: [
-        { type: "scale", questionText: "How well do you protect the privacy of individuals’ data collected by your innovation or research project?" },
+        { type: "scale", questionText: "How well do you protect the privacy of individuals' data collected by your innovation or research project?" },
         { type: "choice", questionText: "You ensure that you obtain informed consent before collecting data from individuals." },
         { type: "choice", questionText: "You implement security mechanisms to prevent unauthorized access to data." },
-        { type: "choice", questionText: "You implement security mechanisms to protect individuals’ data at rest and in transit." },
+        { type: "choice", questionText: "You implement security mechanisms to protect individuals' data at rest and in transit." },
       ],
     },
     {
@@ -163,7 +153,6 @@ const createQuestions = async () => {
       ],
     },
     {
-      //This question was left out....add it on the front end too
       number: 14,
       principleName: "Open Access",
       questionText: "How do you ensure that the data, findings, and outcomes of your innovation are openly accessible to the public, and that they contribute to a broader knowledge base?",
@@ -173,12 +162,9 @@ const createQuestions = async () => {
     },
   ];
 
-  // Loop through the questions and create them in the database
   for (const question of questions) {
-    // Find the principle related to the question
-    const principle = principles.find(p => p.name === question.principleName);
+    const principle = principles.find((p) => p.name === question.principleName);
     if (principle) {
-      // Create the main question
       const createdQuestion = await prisma.question.create({
         data: {
           number: question.number,
@@ -186,9 +172,8 @@ const createQuestions = async () => {
           principleId: principle.id,
         },
       });
-      
-      // Create each subquestion for the current question
-      for (const subquestion of question.subquestions ) {
+
+      for (const subquestion of question.subquestions) {
         await prisma.subQuestion.create({
           data: {
             questionId: createdQuestion.id,
@@ -197,29 +182,53 @@ const createQuestions = async () => {
           },
         });
       }
+    } else {
+      console.warn(`Principle not found: ${question.principleName}`);
     }
   }
 };
 
-// Function to delete all data in the database
+/**
+ * Delete all data in the correct FK-safe order.
+ *
+ * FIX: The old order deleted layers before evaluations/projects,
+ * which works by luck but is fragile. This order follows the
+ * dependency chain strictly: leaf tables first, root tables last.
+ */
 const deleteDB = async () => {
+  console.info("  Deleting existing data...");
   await prisma.answer.deleteMany({});
+  await prisma.evaluation.deleteMany({});
   await prisma.subQuestion.deleteMany({});
   await prisma.question.deleteMany({});
   await prisma.principle.deleteMany({});
   await prisma.layer.deleteMany({});
-  await prisma.evaluation.deleteMany({});
   await prisma.project.deleteMany({});
+  console.info("  Existing data deleted.");
 };
 
-// Function to reinitialize the database by deleting existing data and adding fresh layers, principles, and questions
 const reInitDB = async () => {
   console.info("Reinitializing the DB...");
   await deleteDB();
   await addLayersAndPrinciples();
   await createQuestions();
-  console.info("DB Init Finished...");
+  console.info("DB Init Finished.");
 };
 
-// Run the reinitialization process
-reInitDB();
+module.exports = { reInitDB };
+
+// ── Run when called directly (not when imported) ────────────────
+// FIX: The old code called reInitDBSH() without error handling.
+// If it failed, Node exited silently and the entrypoint script
+// thought seeding succeeded.
+if (require.main === module) {
+  reInitDB()
+  .then(() => {
+    console.info("Seed completed successfully.");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("SEED FAILED:", err);
+    process.exit(1);
+  });
+}

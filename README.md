@@ -1,7 +1,7 @@
 # RRI version 1
 
 A quick project setup documentation for the dev environment.
-
+It
 
 ## ENVIRONMENT
 - Linux systems, Windows systems are all valid systems capable of running the project.

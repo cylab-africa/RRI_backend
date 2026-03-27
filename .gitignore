@@ -131,3 +131,5 @@ dist
 # migrations
 dockerize.txt
 docs
+docker/pgadmin
+docker/pgdata

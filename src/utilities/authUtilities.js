@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../db/prismaClient');
 
 // Function to check if user exists in the database using Prisma
 async function checkUserInDatabase(email) {
@@ -10,7 +9,7 @@ async function checkUserInDatabase(email) {
     return !!user; // Return true if the user exists, false otherwise
 }
 const { OAuth2Client } = require('google-auth-library');
-const { generateJWTToken } = require('./tokenGeneretor');
+const { generateJWTToken } = require('./tokenGenerator');
 const client = new OAuth2Client(process.env.client_id);
 
 async function verifyToken(token) {

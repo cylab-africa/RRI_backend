@@ -1,88 +1,88 @@
 const { createAnonimousAccount } = require("../controllers/authController");
-const { verifyJWTToken, isJWTExpired } = require("../utilities/tokenGeneretor");
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
+const { verifyJWTToken } = require("../utilities/tokenGenerator");
+const prisma = require("../db/prismaClient");
 
-// You need to be logged in
+/**
+ * strictAuthorize — requires a valid JWT.
+ * Returns 401 if token is missing or invalid. Used for protected routes.
+ */
 const strictAuthorize = async (req, res, next) => {
     const token = req.headers["authorization"];
-    if (token) {
-        const user = await verifyJWTToken(token);
-        if (user) {
-            // const actualUser = await prisma.user.findUnique({where:{id:user.id}})
-            req.user = user
-            // console.log(req.user)
-        } else {
-            return res.status(401).send({ "message": "Invalid token provided." })
-        }
-    }else{
-        return res.status(401).send({ "message": "Invalid token provided." })
+    if (!token) {
+        return res.status(401).json({ message: "Authorization token required." });
     }
-    next();
-}
 
+    // verifyJWTToken now handles Bearer prefix internally
+    const user = await verifyJWTToken(token);
+    if (!user) {
+        return res.status(401).json({ message: "Invalid or expired token." });
+    }
+
+    req.user = user;
+    next();
+};
+
+/**
+ * authenticate — soft auth, attaches user if token is valid, null otherwise.
+ * Never blocks the request.
+ */
 const authenticate = async (req, res, next) => {
     const token = req.headers["authorization"];
-    console.log('authorization: ',token)
     if (token) {
         const user = await verifyJWTToken(token);
-        if (user) {
-            req.user = user
-        }else{
-            req.user=null
-        }
-    }else{
-        req.user=null
+        req.user = user || null;
+    } else {
+        req.user = null;
     }
     next();
-}
+};
+
 
 // If you are not logged in an account will be created for you
-const authorize = async (req, res, next)=>{
-    try{
-
+/**
+ * authorize — ensures req.user is always set.
+ * If token is valid -> use that user.
+ * If token is invalid/missing -> create anonymous account.
+ *
+ * BUG FIXES:
+ * 1. Previously checked `user === false` but verifyJWTToken returns null -> anon path never triggered.
+ * 2. `let user = await createAnonimousAccount()` shadowed outer `user` -> req.user was never set.
+ * 3. When user existed in JWT but was deleted from DB, anon was created but not attached to req.user.
+ */
+const authorize = async (req, res, next) => {
+    try {
         const token = req.headers["authorization"];
-        // console.log("The token ", token)
 
-        if(token){
-            
-            const user = await verifyJWTToken(token);
-            if(user === false){
-                let user = await createAnonimousAccount();
-                delete user.user.password
-                // 202 to be used when an anonymous account is created
-                // return res.status(202).send({"message":"Account created. Please use the token provided for anonymous authentication.", "data":user})
-            }
-            if(user){
-                req.user = user
-                let realUser = await prisma.user.findUnique({where:{id:user.id}})
-                if(realUser === null){
-                    let user = await createAnonimousAccount();
-                    delete user.user.password
-                    // 202 to be used when an anonymous account is created
-                    // return res.status(202).send({"message":"Account created. Please use the token provided for anonymous authentication.", "data":user})
-       
+        if (token) {
+            const decoded = await verifyJWTToken(token);
+
+            if (decoded) {
+                // Token is valid — verify the user still exists in DB
+                const realUser = await prisma.user.findUnique({
+                    where: { id: decoded.id },
+                });
+
+                if (realUser) {
+                    req.user = decoded;
+                    return next();
                 }
-            }else{
-                return res.status(401).send({"message":"Invalid token provided."})
-
+                // User was deleted from DB — fall through to create anonymous
             }
-        }else{
-            let user = await createAnonimousAccount();
-            delete user.user.password
-            // 202 to be used when an anonymous account is created
-            // return res.status(202).send({"message":"Account created. Please use the token provided for anonymous authentication.", "data":user})
+            // Token invalid or user gone — fall through to create anonymous
         }
-        return next()
-    }catch(e){
-        console.error(e)
-       
-        return res.status(500).send({"message":"Something went wrong!"})
+
+        // No token, invalid token, or deleted user -> create anonymous account
+        const anonResult = await createAnonimousAccount();
+        req.user = anonResult.user;
+        return next();
+    } catch (e) {
+        console.error("authorize middleware error:", e);
+        return res.status(500).json({ message: "Authentication failed." });
     }
-}
+};
 
 module.exports = {
     strictAuthorize,
     authorize,
-    authenticate
-}
+    authenticate,
+};
